@@ -860,6 +860,19 @@ class TranslatorApp:
             extra_buttons=[("Copy & Hide", self._copy_and_hide)]
         )
         self.dst_panel.grid(row=0, column=1, sticky=tk.NSEW, padx=(5, 0), pady=(0, 0))
+        
+        # Индикатор прогресса перевода внутри панели перевода
+        self.translate_status_frame = ttk.Frame(panels)
+        self.translate_status_frame.grid(row=1, column=1, sticky=tk.EW, pady=(5, 0))
+        self.translate_status_frame.columnconfigure(0, weight=1)
+        
+        self.translate_status_var = tk.StringVar(value="")
+        ttk.Label(
+            self.translate_status_frame,
+            textvariable=self.translate_status_var,
+            font=("Segoe UI", 9),
+            foreground="gray"
+        ).grid(row=0, column=0, sticky=tk.W)
 
         status_frame = ttk.Frame(main, height=28)
         status_frame.grid(row=2, column=0, sticky=tk.EW, pady=(8, 0))
@@ -871,8 +884,19 @@ class TranslatorApp:
             row=0, column=0, sticky=tk.W
         )
 
+        # Прогресс-бар для отображения хода перевода
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(
+            status_frame,
+            variable=self.progress_var,
+            maximum=100,
+            mode='determinate',
+            length=150
+        )
+        self.progress_bar.grid(row=0, column=1, padx=(10, 5), sticky=tk.E)
+
         hints = "Ctrl+Enter: Translate    Ctrl+Shift+C: Capture    Ctrl+S: Swap languages"
-        ttk.Label(status_frame, text=hints, font=("Segoe UI", 9)).grid(row=0, column=1, sticky=tk.E)
+        ttk.Label(status_frame, text=hints, font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.E)
 
     def _bind_events(self) -> None:
         """Привязка обработчиков событий."""
@@ -1011,6 +1035,10 @@ class TranslatorApp:
                 pass
 
         self.dst_panel.clear()
+        
+        # Сброс и установка статуса перевода
+        self.progress_var.set(0)
+        self.translate_status_var.set(f"Перевод: 0/{len(sentences)} предл.")
 
         self.translate_thread = threading.Thread(
             target=self._translate_worker,
@@ -1079,6 +1107,14 @@ class TranslatorApp:
 
         if need_update and self.active_job is not None:
             self._update_translated_text(self.active_job)
+            
+            # Обновление прогресс-бара
+            total = self.total_sentences.get(self.active_job, 0)
+            if total > 0:
+                translated_count = len(self.partial_translations[self.active_job])
+                progress = (translated_count / total) * 100
+                self.progress_var.set(progress)
+                self.translate_status_var.set(f"Перевод: {translated_count}/{total} предл. ({progress:.0f}%)")
 
     def _update_translated_text(self, job_id: int) -> None:
         """Обновление текста перевода в интерфейсе."""
@@ -1112,6 +1148,11 @@ class TranslatorApp:
         final = "\n\n".join(out_paras)
         self.dst_panel.set_text(final)
         self._update_paragraph_offsets()
+        
+        # Проверка завершения перевода
+        if len(partials) >= total:
+            self.translate_status_var.set("✓ Перевод завершён")
+            self.status_var.set("Готов к работе")
 
     def _update_paragraph_offsets(self) -> None:
         """Обновление оффсетов параграфов для синхронизации прокрутки."""
