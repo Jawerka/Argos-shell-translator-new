@@ -6,13 +6,27 @@ PyInstaller spec-файл для сборки Argos Translate Streaming.
     pyinstaller ArgosTranslator.spec
 
 После сборки исполняемый файл находится в dist/ArgosTranslator.exe
+Сборка полностью портативная — все зависимости встроены.
 """
 
 import os
+import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 # Директория проекта
 project_dir = Path(__file__).parent.resolve()
+
+# Сбор всех подмодулей и данных для зависимостей
+# Это обеспечивает встраивание всех необходимых компонентов в сборку
+argos_modules = collect_submodules('argostranslate')
+argos_datas = collect_data_files('argostranslate')
+
+pystray_modules = collect_submodules('pystray')
+pystray_datas = collect_data_files('pystray')
+
+pil_modules = collect_submodules('PIL')
+pil_datas = collect_data_files('PIL')
 
 # Анализ проекта
 a = Analysis(
@@ -25,41 +39,72 @@ a = Analysis(
         (str(project_dir / 'argos_translate.png'), '.'),
         # Папка с моделями (если существует)
         (str(project_dir / 'argos_models'), 'argos_models') if (project_dir / 'argos_models').exists() else None,
+        # Данные зависимостей
+        *argos_datas,
+        *pystray_datas,
+        *pil_datas,
     ],
     # Скрытые импорты для корректной работы всех компонентов
     hiddenimports=[
-        # Pystray (работа в трее)
-        'pystray._win32',
-        'pystray._darwin',
-        'pystray._xorg',
-        # Argos Translate
-        'argostranslate.package',
-        'argostranslate.translate',
+        # Все подмодули argostranslate
+        *argos_modules,
+        # Все подмодули pystray
+        *pystray_modules,
+        # Все подмодули PIL
+        *pil_modules,
         # Опциональные зависимости
         'pyperclip',
         'keyboard',
         'langdetect',
-        # PIL/Pillow для иконок
-        'PIL',
-        'PIL.Image',
-        'PIL.ImageDraw',
-        'PIL.ImageFont',
-        # Tkinter (может потребоваться явное указание)
+        # Tkinter
         'tkinter',
+        'tkinter.constants',
         'tkinter.scrolledtext',
         'tkinter.ttk',
+        'tkinter.messagebox',
+        # Системные модули
+        'queue',
+        'threading',
+        'subprocess',
+        'json',
+        'logging',
+        'pathlib',
+        'dataclasses',
+        'enum',
+        'importlib',
+        'shutil',
+        're',
+        'time',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
+        # Исключаем тяжёлые и ненужные пакеты
         'matplotlib',
+        'matplotlib.*',
         'numpy',
+        'numpy.*',
         'scipy',
+        'scipy.*',
         'pandas',
+        'pandas.*',
         'pytest',
+        'pytest.*',
         'setuptools',
         'distutils',
+        'IPython',
+        'IPython.*',
+        'jupyter',
+        'jupyter.*',
+        'notebook',
+        'notebook.*',
+        'sphinx',
+        'sphinx.*',
+        'docutils',
+        'docutils.*',
+        'Cython',
+        'Cython.*',
     ],
     noarchive=False,
     optimize=0,
@@ -79,7 +124,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=True,  # Сжатие для уменьшения размера
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,  # Без консольного окна (GUI приложение)

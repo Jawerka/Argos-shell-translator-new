@@ -82,6 +82,32 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import tkinter as tk
 from tkinter import scrolledtext, ttk, messagebox
 
+
+# -------------------------------------------------------------------------
+# Утилиты для портативной сборки (PyInstaller)
+# -------------------------------------------------------------------------
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """
+    Получить путь к ресурсу в портативной сборке или при обычной работе.
+    
+    Для PyInstaller: использует _MEIPASS если доступен.
+    Для обычной работы: использует директорию скрипта.
+    """
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Запуск из PyInstaller сборки
+        bundle_dir = Path(sys._MEIPASS)
+        return bundle_dir / relative_path
+    else:
+        # Обычный запуск из исходников
+        try:
+            script_dir = Path(__file__).resolve().parent
+        except Exception:
+            script_dir = Path.cwd()
+        return script_dir / relative_path
+
+
 # -------------------------------------------------------------------------
 # Опциональные библиотеки: безопасный импорт через importlib
 # -------------------------------------------------------------------------
@@ -779,8 +805,7 @@ class TranslatorApp:
 
         # Установка иконки окна
         try:
-            script_dir = Path(__file__).resolve().parent if __file__ else Path.cwd()
-            icon_path = script_dir / "argos_translate.ico"
+            icon_path = get_resource_path("argos_translate.ico")
             if icon_path.exists():
                 self.root.iconbitmap(str(icon_path))
                 logger.debug("Window icon set from: %s", icon_path)
@@ -1544,50 +1569,41 @@ class TranslatorApp:
 
                 # Попытаться загрузить .ico рядом со скриптом или по известному абсолютному пути
                 icon_img = None
+                icon_path = get_resource_path("argos_translate.ico")
+                
                 try:
-                    script_dir = Path(__file__).resolve().parent if __file__ else Path.cwd()
-                except Exception:
-                    script_dir = Path.cwd()
-
-                candidate_icons = [
-                    script_dir / "argos_translate.ico",
-                ]
-
-                for p in candidate_icons:
-                    try:
-                        if p.exists():
-                            logger.debug("Loading tray icon from: %s", str(p))
-                            img = Image.open(str(p))
+                    if icon_path.exists():
+                        logger.debug("Loading tray icon from: %s", str(icon_path))
+                        img = Image.open(str(icon_path))
+                        try:
+                            img = img.convert("RGBA")
+                            img = img.copy()
+                            # выберем корректный ресемплинг
+                            resample = None
+                            if hasattr(Image, "Resampling"):
+                                resample = getattr(Image.Resampling, "LANCZOS", None)
+                            if resample is None:
+                                resample = getattr(Image, "LANCZOS", None)
+                            if resample is None:
+                                resample = getattr(Image, "ANTIALIAS", None)
                             try:
-                                img = img.convert("RGBA")
-                                img = img.copy()
-                                # выберем корректный ресемплинг
-                                resample = None
-                                if hasattr(Image, "Resampling"):
-                                    resample = getattr(Image.Resampling, "LANCZOS", None)
-                                if resample is None:
-                                    resample = getattr(Image, "LANCZOS", None)
-                                if resample is None:
-                                    resample = getattr(Image, "ANTIALIAS", None)
-                                try:
-                                    if resample is not None:
-                                        img.thumbnail((64, 64), resample)
-                                    else:
-                                        img.thumbnail((64, 64))
-                                except Exception:
-                                    try:
-                                        img.thumbnail((64, 64))
-                                    except Exception:
-                                        pass
+                                if resample is not None:
+                                    img.thumbnail((64, 64), resample)
+                                else:
+                                    img.thumbnail((64, 64))
                             except Exception:
                                 try:
-                                    img = img.convert("RGBA")
+                                    img.thumbnail((64, 64))
                                 except Exception:
                                     pass
-                            icon_img = img
-                            break
-                    except Exception as exc:
-                        logger.debug("Failed to load icon %s: %s", p, exc)
+                        except Exception:
+                            try:
+                                img = img.convert("RGBA")
+                            except Exception:
+                                pass
+                        icon_img = img
+                except Exception as exc:
+                    logger.debug("Failed to load icon %s: %s", icon_path, exc)
 
                 # Если не загрузили файл — создаём серую заглушку
                 if icon_img is None:
@@ -1855,11 +1871,8 @@ def check_translation_models() -> Tuple[bool, List[str]]:
 
 
 def get_script_dir() -> Path:
-    """Получить директорию скрипта."""
-    try:
-        return Path(__file__).resolve().parent
-    except Exception:
-        return Path.cwd()
+    """Получить директорию скрипта (или сборки PyInstaller)."""
+    return get_resource_path("")
 
 
 def install_models_from_bundle() -> bool:
