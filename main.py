@@ -134,9 +134,18 @@ def safe_import(module_name: str) -> Tuple[ImportStatus, Optional[Any]]:
 ARGOS_MODULE_STATUS, argostranslate_module = safe_import("argostranslate")
 AT_TRANSLATE_MODULE: Optional[Any] = None
 AT_PACKAGE_MODULE: Optional[Any] = None
+
 if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not None:
-    _, AT_TRANSLATE_MODULE = safe_import("argostranslate.translate")
-    _, AT_PACKAGE_MODULE = safe_import("argostranslate.package")
+    # Пробуем импортировать translate напрямую
+    try:
+        AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
+    except Exception:
+        AT_TRANSLATE_MODULE = None
+    
+    try:
+        AT_PACKAGE_MODULE = importlib.import_module("argostranslate.package")
+    except Exception:
+        AT_PACKAGE_MODULE = None
 
 PYPERCLIP_STATUS, PYPERCLIP_MODULE = safe_import("pyperclip")
 KEYBOARD_STATUS, KEYBOARD_MODULE = safe_import("keyboard")
