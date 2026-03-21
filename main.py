@@ -156,32 +156,48 @@ class LoggingConfig:
     """Конфигурация логирования приложения."""
 
     def __init__(self) -> None:
-        self.config_dir = Path.home() / ".argos_translate"
-        self.log_file = self.config_dir / "app_streaming.log"
+        # Лог создается в подпапке \log рядом с exe или скриптом
+        self.log_dir = get_resource_path("log")
+        self.log_file = self.log_dir / "app_debug.log"
 
     def setup(self) -> logging.Logger:
         """Настройка логирования."""
-        self.config_dir.mkdir(parents=True, exist_ok=True)
+        # Создаем директорию для логов
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            # Если не удалось создать папку, пробуем альтернативный путь
+            try:
+                self.log_dir = Path.home() / ".argos_translate" / "log"
+                self.log_dir.mkdir(parents=True, exist_ok=True)
+                self.log_file = self.log_dir / "app_debug.log"
+            except Exception:
+                # Фолбэк на временную директорию
+                import tempfile
+                self.log_dir = Path(tempfile.gettempdir()) / "argos_translate_log"
+                self.log_dir.mkdir(parents=True, exist_ok=True)
+                self.log_file = self.log_dir / "app_debug.log"
 
         fmt = "%(asctime)s - %(levelname)s - %(message)s"
         datefmt = "%Y-%m-%d %H:%M:%S"
 
+        # Очищаем существующие обработчики
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.DEBUG,
             format=fmt,
             datefmt=datefmt,
             handlers=[
-                logging.FileHandler(self.log_file, encoding="utf-8"),
+                logging.FileHandler(self.log_file, encoding="utf-8", mode='a'),
                 logging.StreamHandler(sys.stdout),
             ],
+            force=True  # Принудительная перезапись конфигурации
         )
 
         logger = logging.getLogger("ArgosStreaming")
         logging.getLogger("PIL").setLevel(logging.WARNING)
-
-        logger.info("=" * 60)
-        logger.info("Запуск Argos Translate Streaming GUI")
-        logger.info("=" * 60)
 
         return logger
 
@@ -1912,18 +1928,43 @@ def install_models_from_bundle() -> bool:
 
 def main() -> None:
     """Главная функция запуска приложения."""
-    logger.info("Starting Argos Translate app")
-
+    # Инициализация логирования - самое первое действие
+    log_cfg = LoggingConfig()
+    log_logger = log_cfg.setup()
+    
+    log_logger.info("=" * 70)
+    log_logger.info("Argos Translate Streaming - ЗАПУСК")
+    log_logger.info("=" * 70)
+    log_logger.info("Python executable: %s", sys.executable)
+    log_logger.info("Python version: %s", sys.version)
+    log_logger.info("Platform: %s", sys.platform)
+    log_logger.info("Frozen (PyInstaller): %s", getattr(sys, 'frozen', False))
+    log_logger.info("MEIPASS: %s", getattr(sys, '_MEIPASS', 'N/A'))
+    log_logger.info("Script dir: %s", get_script_dir())
+    log_logger.info("Log dir: %s", log_cfg.log_dir)
+    log_logger.info("Log file: %s", log_cfg.log_file)
+    log_logger.info("-" * 70)
+    
+    # Глобальная переменная logger теперь инициализирована
+    global logger
+    logger = log_logger
+    
     try:
+        log_logger.info("Checking console relaunch...")
         if attempt_relaunch_without_console():
+            log_logger.info("Relaunched via pythonw.exe")
             return
     except Exception as exc:
-        logger.debug("Relaunch check failed: %s", exc)
+        log_logger.exception("Relaunch check failed: %s", exc)
 
     try:
+        log_logger.info("Checking translation backend...")
         cli_available = shutil.which("argos-translate") is not None
+        log_logger.info("Argos API status: %s", ARGOS_MODULE_STATUS.value)
+        log_logger.info("Argos CLI available: %s", cli_available)
 
         if ARGOS_MODULE_STATUS != ImportStatus.SUCCESS and not cli_available:
+            log_logger.warning("No translation backend found!")
             root_tmp = tk.Tk()
             root_tmp.withdraw()
 
@@ -1935,26 +1976,34 @@ def main() -> None:
 
             if answer:
                 try:
+                    log_logger.info("Installing argostranslate...")
                     subprocess.check_call([sys.executable, "-m", "pip", "install", "argostranslate"])
                     messagebox.showinfo("Installed", "argostranslate installed. Restart the app.")
                 except Exception as exc:
+                    log_logger.exception("Install failed: %s", exc)
                     messagebox.showerror("Install failed", f"Failed to install: {exc}")
             return
     except Exception as exc:
-        logger.error("Backend check failed: %s", exc)
+        log_logger.exception("Backend check failed: %s", exc)
+        return
 
     # Проверка наличия моделей перевода
+    log_logger.info("Checking translation models...")
     has_models, available_pairs = check_translation_models()
+    log_logger.info("Models found: %s", has_models)
+    log_logger.info("Available pairs: %s", available_pairs)
 
     if not has_models and ARGOS_MODULE_STATUS == ImportStatus.SUCCESS:
-        logger.info("No translation models found, attempting to install from bundle...")
+        log_logger.info("No translation models found, attempting to install from bundle...")
 
         # Пытаемся установить модели из локальной папки
         if install_models_from_bundle():
             # Проверяем снова после установки
             has_models, available_pairs = check_translation_models()
+            log_logger.info("After bundle install - models: %s, pairs: %s", has_models, available_pairs)
 
         if not has_models:
+            log_logger.warning("No models found after bundle check")
             root_tmp = tk.Tk()
             root_tmp.withdraw()
 
@@ -1980,17 +2029,25 @@ def main() -> None:
             root_tmp.destroy()
             return
 
-        logger.info("Models installed successfully: %s", available_pairs)
+        log_logger.info("Models installed successfully: %s", available_pairs)
 
     if has_models:
-        logger.info("Available translation pairs: %s", available_pairs)
+        log_logger.info("Available translation pairs: %s", available_pairs)
 
     try:
+        log_logger.info("Creating Tk root...")
         root = tk.Tk()
+        log_logger.info("Tk root created successfully")
+        
+        log_logger.info("Creating TranslatorApp...")
         app = TranslatorApp(root)
+        log_logger.info("TranslatorApp created successfully")
+        
+        log_logger.info("Starting mainloop...")
         root.mainloop()
+        log_logger.info("Mainloop finished")
     except Exception as exc:
-        logger.critical("Fatal error: %s", exc)
+        log_logger.exception("Fatal error: %s", exc)
         try:
             tk.Tk().withdraw()
             messagebox.showerror("Fatal error", f"Application crashed:\n{exc}")
