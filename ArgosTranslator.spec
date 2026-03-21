@@ -14,8 +14,11 @@ import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
-# Директория проекта
-project_dir = Path(__file__).parent.resolve()
+# Директория проекта (корректно работает при запуске из PyInstaller)
+if 'SPEC' in globals():
+    project_dir = Path(SPEC).parent.resolve()
+else:
+    project_dir = Path.cwd().resolve()
 
 # Сбор всех подмодулей и данных для зависимостей
 # Это обеспечивает встраивание всех необходимых компонентов в сборку
