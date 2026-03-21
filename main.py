@@ -145,37 +145,51 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
     # Пробуем импортировать translate (может упасть из-за spacy)
     try:
         AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
-    except Exception:
-        # Если translate не импортируется, создаем обходной путь
+    except Exception as exc:
+        # Если translate не импортируется, создаем обходной путь через ctranslate2
         AT_TRANSLATE_MODULE = None
         
-        # Создаем собственный translate API без spacy
         if AT_PACKAGE_MODULE is not None:
             try:
-                # Используем внутренний API argostranslate напрямую
+                import ctranslate2
                 from argostranslate.package import get_installed_packages
+                from argostranslate import tokenizer as argos_tokenizer
                 
                 def custom_translate(text: str, from_code: str, to_code: str) -> str:
-                    """Перевод текста без использования spacy."""
+                    """Перевод текста через ctranslate2 напрямую."""
                     # Находим установленный пакет для пары языков
                     installed_packages = get_installed_packages()
-                    package = None
-                    for pkg in installed_packages:
-                        if pkg.from_code == from_code and pkg.to_code == to_code:
-                            package = pkg
+                    pkg = None
+                    for p in installed_packages:
+                        if p.from_code == from_code and p.to_code == to_code:
+                            pkg = p
                             break
                     
-                    if package is None:
+                    if pkg is None:
                         raise RuntimeError(f"No package for {from_code}->{to_code}")
                     
-                    # Переводим текст напрямую через пакет
-                    return package.translate(text)
+                    # Инициализируем ctranslate2 модель
+                    model_path = str(pkg.package_path / "model")
+                    translator = ctranslate2.Translator(model_path, device="cpu")
+                    
+                    # Токенизируем входной текст
+                    tokens = argos_tokenizer.Tokenizer().encode(text, [from_code])
+                    
+                    # Переводим
+                    result = translator.translate_batch([tokens])
+                    
+                    # Декодируем результат
+                    translated_tokens = result[0][0].hypotheses[0]
+                    translated_text = argos_tokenizer.Tokenizer().decode(translated_tokens, [to_code])
+                    
+                    return translated_text.strip()
                 
                 # Создаем фейковый модуль с функцией translate
                 import types
                 AT_TRANSLATE_MODULE = types.ModuleType("argostranslate.translate")
                 AT_TRANSLATE_MODULE.translate = custom_translate
-            except Exception:
+            except Exception as exc2:
+                # Не удалось создать обходной путь
                 pass
 
 PYPERCLIP_STATUS, PYPERCLIP_MODULE = safe_import("pyperclip")
