@@ -26,6 +26,17 @@ else:
 argos_modules = collect_submodules('argostranslate')
 argos_datas = collect_data_files('argostranslate')
 
+# Явно добавляем подмодули argostranslate которые могут не обнаружиться
+argos_hidden_imports = [
+    'argostranslate.translate',
+    'argostranslate.apis',
+    'argostranslate.cli',
+    'argostranslate.package',
+    'argostranslate.tags',
+    'argostranslate.apply_bpe',
+    'argostranslate.argospm',
+]
+
 pystray_modules = collect_submodules('pystray')
 pystray_datas = collect_data_files('pystray')
 
@@ -52,6 +63,8 @@ a = Analysis(
     hiddenimports=[
         # Все подмодули argostranslate
         *argos_modules,
+        # Явные импорты argostranslate
+        *argos_hidden_imports,
         # Все подмодули pystray
         *pystray_modules,
         # Все подмодули PIL

@@ -1813,7 +1813,13 @@ def attempt_relaunch_without_console() -> bool:
     """
     На Windows: попытаться перезапустить через pythonw.exe чтобы убрать консоль.
     Возвращает True если перезапуск успешен.
+    
+    В PyInstaller сборке не делаем перезапуск - консоль уже скрыта через runw.exe.
     """
+    # В PyInstaller сборке не делаем перезапуск
+    if getattr(sys, 'frozen', False):
+        return False
+    
     if os.name != "nt":
         return False
 
