@@ -136,16 +136,47 @@ AT_TRANSLATE_MODULE: Optional[Any] = None
 AT_PACKAGE_MODULE: Optional[Any] = None
 
 if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not None:
-    # Пробуем импортировать translate напрямую
-    try:
-        AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
-    except Exception:
-        AT_TRANSLATE_MODULE = None
-    
+    # Пробуем импортировать package напрямую (не зависит от spacy)
     try:
         AT_PACKAGE_MODULE = importlib.import_module("argostranslate.package")
     except Exception:
         AT_PACKAGE_MODULE = None
+    
+    # Пробуем импортировать translate (может упасть из-за spacy)
+    try:
+        AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
+    except Exception:
+        # Если translate не импортируется, создаем обходной путь
+        AT_TRANSLATE_MODULE = None
+        
+        # Создаем собственный translate API без spacy
+        if AT_PACKAGE_MODULE is not None:
+            try:
+                # Используем внутренний API argostranslate напрямую
+                from argostranslate.package import get_installed_packages
+                
+                def custom_translate(text: str, from_code: str, to_code: str) -> str:
+                    """Перевод текста без использования spacy."""
+                    # Находим установленный пакет для пары языков
+                    installed_packages = get_installed_packages()
+                    package = None
+                    for pkg in installed_packages:
+                        if pkg.from_code == from_code and pkg.to_code == to_code:
+                            package = pkg
+                            break
+                    
+                    if package is None:
+                        raise RuntimeError(f"No package for {from_code}->{to_code}")
+                    
+                    # Переводим текст напрямую через пакет
+                    return package.translate(text)
+                
+                # Создаем фейковый модуль с функцией translate
+                import types
+                AT_TRANSLATE_MODULE = types.ModuleType("argostranslate.translate")
+                AT_TRANSLATE_MODULE.translate = custom_translate
+            except Exception:
+                pass
 
 PYPERCLIP_STATUS, PYPERCLIP_MODULE = safe_import("pyperclip")
 KEYBOARD_STATUS, KEYBOARD_MODULE = safe_import("keyboard")
