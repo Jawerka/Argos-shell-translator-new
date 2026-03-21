@@ -93,7 +93,7 @@ a = Analysis(
         're',
         'time',
     ],
-    hookspath=[],
+    hookspath=[str(project_dir)],  # Путь к кастомным хукам
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
