@@ -13,6 +13,7 @@ import os
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.building.api import COLLECT
 
 # Директория проекта (корректно работает при запуске из PyInstaller)
 if 'SPEC' in globals():
@@ -117,6 +118,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # Создание исполняемого файла
+# COLLECT вместо EXE - сборка в папку (проще для отладки)
 exe = EXE(
     pyz,
     a.scripts,
@@ -130,11 +132,21 @@ exe = EXE(
     upx=True,  # Сжатие для уменьшения размера
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Без консольного окна (GUI приложение)
-    disable_windowed_traceback=False,
+    console=True,  # Консоль для отладки (видны ошибки)
+    disable_windowed_traceback=True,  # Показывать traceback в консоли
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon=[str(project_dir / 'argos_translate.ico')],
+)
+
+# Сборка в папку вместо одного файла
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    name='ArgosTranslator',
 )

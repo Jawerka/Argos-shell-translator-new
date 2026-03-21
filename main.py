@@ -1943,11 +1943,40 @@ def main() -> None:
     log_logger.info("Script dir: %s", get_script_dir())
     log_logger.info("Log dir: %s", log_cfg.log_dir)
     log_logger.info("Log file: %s", log_cfg.log_file)
+    
+    # Диагностика окружения
+    log_logger.info("-" * 70)
+    log_logger.info("ENVIRONMENT DIAGNOSTICS:")
+    log_logger.info("  sys.path: %s", sys.path)
+    log_logger.info("  PATH env: %s", os.environ.get('PATH', 'N/A')[:500])
+    log_logger.info("  PYTHONPATH env: %s", os.environ.get('PYTHONPATH', 'N/A'))
+    log_logger.info("  Current dir: %s", os.getcwd())
+    
+    # Проверка наличия ресурсов
+    log_logger.info("-" * 70)
+    log_logger.info("RESOURCE CHECK:")
+    for resource in ['argos_translate.ico', 'argos_translate.png', 'argos_models']:
+        res_path = get_resource_path(resource)
+        log_logger.info("  %s -> %s (exists: %s)", resource, res_path, res_path.exists())
+    
     log_logger.info("-" * 70)
     
     # Глобальная переменная logger теперь инициализирована
     global logger
     logger = log_logger
+    
+    # Диагностика импортов
+    log_logger.info("IMPORT STATUS DIAGNOSTICS:")
+    log_logger.info("  argostranslate: %s (module: %s)", ARGOS_MODULE_STATUS.value, argostranslate_module)
+    log_logger.info("  argostranslate.translate: %s", AT_TRANSLATE_MODULE is not None)
+    log_logger.info("  argostranslate.package: %s", AT_PACKAGE_MODULE is not None)
+    log_logger.info("  pyperclip: %s (module: %s)", PYPERCLIP_STATUS.value, PYPERCLIP_MODULE)
+    log_logger.info("  keyboard: %s (module: %s)", KEYBOARD_STATUS.value, KEYBOARD_MODULE)
+    log_logger.info("  langdetect: %s (module: %s)", LANGDETECT_STATUS.value, LANGDETECT_MODULE)
+    log_logger.info("  pystray: %s (module: %s)", PYSTRAY_STATUS.value, PYSTRAY_MODULE)
+    log_logger.info("  PIL: %s (module: %s)", PIL_STATUS.value, PIL_MODULE)
+    log_logger.info("  TRAY_AVAILABLE: %s", TRAY_AVAILABLE)
+    log_logger.info("-" * 70)
     
     try:
         log_logger.info("Checking console relaunch...")
