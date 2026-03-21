@@ -877,26 +877,14 @@ class TranslatorApp:
         status_frame = ttk.Frame(main, height=28)
         status_frame.grid(row=2, column=0, sticky=tk.EW, pady=(8, 0))
         status_frame.columnconfigure(0, weight=1)
-        status_frame.columnconfigure(1, weight=0)
 
         self.status_var = tk.StringVar(value="Готов к работе")
         ttk.Label(status_frame, textvariable=self.status_var, font=("Segoe UI", 9)).grid(
             row=0, column=0, sticky=tk.W
         )
 
-        # Прогресс-бар для отображения хода перевода
-        self.progress_var = tk.DoubleVar(value=0)
-        self.progress_bar = ttk.Progressbar(
-            status_frame,
-            variable=self.progress_var,
-            maximum=100,
-            mode='determinate',
-            length=150
-        )
-        self.progress_bar.grid(row=0, column=1, padx=(10, 5), sticky=tk.E)
-
         hints = "Ctrl+Enter: Translate    Ctrl+Shift+C: Capture    Ctrl+S: Swap languages"
-        ttk.Label(status_frame, text=hints, font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.E)
+        ttk.Label(status_frame, text=hints, font=("Segoe UI", 9)).grid(row=0, column=1, sticky=tk.E)
 
     def _bind_events(self) -> None:
         """Привязка обработчиков событий."""
@@ -1036,8 +1024,7 @@ class TranslatorApp:
 
         self.dst_panel.clear()
         
-        # Сброс и установка статуса перевода
-        self.progress_var.set(0)
+        # Установка статуса перевода
         self.translate_status_var.set(f"Перевод: 0/{len(sentences)} предл.")
 
         self.translate_thread = threading.Thread(
@@ -1108,12 +1095,11 @@ class TranslatorApp:
         if need_update and self.active_job is not None:
             self._update_translated_text(self.active_job)
             
-            # Обновление прогресс-бара
+            # Обновление статуса перевода
             total = self.total_sentences.get(self.active_job, 0)
             if total > 0:
                 translated_count = len(self.partial_translations[self.active_job])
                 progress = (translated_count / total) * 100
-                self.progress_var.set(progress)
                 self.translate_status_var.set(f"Перевод: {translated_count}/{total} предл. ({progress:.0f}%)")
 
     def _update_translated_text(self, job_id: int) -> None:
