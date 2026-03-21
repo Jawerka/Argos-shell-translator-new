@@ -12,7 +12,7 @@ PyInstaller spec-файл для сборки Argos Translate Streaming.
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, get_package_paths
 from PyInstaller.building.api import COLLECT
 
 # Директория проекта (корректно работает при запуске из PyInstaller)
@@ -43,11 +43,23 @@ pystray_datas = collect_data_files('pystray')
 pil_modules = collect_submodules('PIL')
 pil_datas = collect_data_files('PIL')
 
+# Получаем путь к numpy для добавления .libs
+try:
+    numpy_path = get_package_paths('numpy')[0]
+    numpy_libs_path = Path(numpy_path) / '.libs'
+    if numpy_libs_path.exists():
+        numpy_binaries = [(str(f), str(f.parent.relative_to(numpy_path.parent))) 
+                          for f in numpy_libs_path.glob('*.dll')]
+    else:
+        numpy_binaries = []
+except Exception:
+    numpy_binaries = []
+
 # Анализ проекта
 a = Analysis(
     ['main.py'],
     pathex=[str(project_dir)],
-    binaries=[],
+    binaries=numpy_binaries,
     datas=[
         # Иконки
         (str(project_dir / 'argos_translate.ico'), '.'),
@@ -73,6 +85,8 @@ a = Analysis(
         'pyperclip',
         'keyboard',
         'langdetect',
+        # numpy требуется для ctranslate2
+        'numpy',
         # Tkinter
         'tkinter',
         'tkinter.constants',

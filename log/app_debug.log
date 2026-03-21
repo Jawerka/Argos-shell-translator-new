@@ -1,0 +1,60 @@
+2026-03-21 19:07:18 - INFO - ======================================================================
+2026-03-21 19:07:18 - INFO - Argos Translate Streaming - ЗАПУСК
+2026-03-21 19:07:18 - INFO - ======================================================================
+2026-03-21 19:07:18 - INFO - Python executable: D:\Documents\Projects\python\Argos-shell-translator-new\venv\Scripts\python.exe
+2026-03-21 19:07:18 - INFO - Python version: 3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]
+2026-03-21 19:07:18 - INFO - Platform: win32
+2026-03-21 19:07:18 - INFO - Frozen (PyInstaller): False
+2026-03-21 19:07:18 - INFO - MEIPASS: N/A
+2026-03-21 19:07:18 - INFO - Script dir: D:\Documents\Projects\python\Argos-shell-translator-new
+2026-03-21 19:07:18 - INFO - Log dir: D:\Documents\Projects\python\Argos-shell-translator-new\log
+2026-03-21 19:07:18 - INFO - Log file: D:\Documents\Projects\python\Argos-shell-translator-new\log\app_debug.log
+2026-03-21 19:07:18 - INFO - ----------------------------------------------------------------------
+2026-03-21 19:07:18 - INFO - Checking console relaunch...
+2026-03-21 19:07:18 - INFO - Relaunched via pythonw: D:\Documents\Projects\python\Argos-shell-translator-new\venv\Scripts\pythonw.exe
+2026-03-21 19:07:18 - INFO - Relaunched via pythonw.exe
+2026-03-21 19:07:21 - INFO - ======================================================================
+2026-03-21 19:07:21 - INFO - Argos Translate Streaming - ЗАПУСК
+2026-03-21 19:07:21 - INFO - ======================================================================
+2026-03-21 19:07:21 - INFO - Python executable: D:\Documents\Projects\python\Argos-shell-translator-new\venv\Scripts\pythonw.exe
+2026-03-21 19:07:21 - INFO - Python version: 3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]
+2026-03-21 19:07:21 - INFO - Platform: win32
+2026-03-21 19:07:21 - INFO - Frozen (PyInstaller): False
+2026-03-21 19:07:21 - INFO - MEIPASS: N/A
+2026-03-21 19:07:21 - INFO - Script dir: D:\Documents\Projects\python\Argos-shell-translator-new
+2026-03-21 19:07:21 - INFO - Log dir: D:\Documents\Projects\python\Argos-shell-translator-new\log
+2026-03-21 19:07:21 - INFO - Log file: D:\Documents\Projects\python\Argos-shell-translator-new\log\app_debug.log
+2026-03-21 19:07:21 - INFO - ----------------------------------------------------------------------
+2026-03-21 19:07:21 - INFO - Checking console relaunch...
+2026-03-21 19:07:21 - INFO - Checking translation backend...
+2026-03-21 19:07:21 - INFO - Argos API status: success
+2026-03-21 19:07:21 - INFO - Argos CLI available: True
+2026-03-21 19:07:21 - INFO - Checking translation models...
+2026-03-21 19:07:21 - INFO - Models found: True
+2026-03-21 19:07:21 - INFO - Available pairs: ['ru->en', 'en->ru']
+2026-03-21 19:07:21 - INFO - Available translation pairs: ['ru->en', 'en->ru']
+2026-03-21 19:07:21 - INFO - Creating Tk root...
+2026-03-21 19:07:21 - INFO - Tk root created successfully
+2026-03-21 19:07:21 - INFO - Creating TranslatorApp...
+2026-03-21 19:07:21 - INFO - Using Argos Python API
+2026-03-21 19:07:21 - DEBUG - Window icon set from: D:\Documents\Projects\python\Argos-shell-translator-new\argos_translate.ico
+2026-03-21 19:07:22 - INFO - Global hotkey registered
+2026-03-21 19:07:22 - INFO - TranslatorApp created successfully
+2026-03-21 19:07:22 - INFO - Starting mainloop...
+2026-03-21 19:07:28 - INFO - Settings saved
+2026-03-21 20:57:11 - INFO - Using Argos Python API
+2026-03-21 20:57:11 - WARNING - API error, fallback to CLI: Tokenizer.encode() takes 2 positional arguments but 3 were given
+2026-03-21 20:58:47 - INFO - Using Argos Python API
+2026-03-21 20:58:47 - WARNING - API error, fallback to CLI: 
+2026-03-21 21:02:36 - INFO - Using Argos Python API
+2026-03-21 21:02:36 - WARNING - API error, fallback to CLI: 'dict' object has no attribute 'hypotheses'
+2026-03-21 21:02:59 - INFO - Using Argos Python API
+2026-03-21 21:02:59 - WARNING - API error, fallback to CLI: 'dict' object has no attribute 'hypotheses'
+2026-03-21 21:03:45 - INFO - Using Argos Python API
+2026-03-21 21:03:46 - WARNING - API error, fallback to CLI: __getitem__(): incompatible function arguments. The following argument types are supported:
+    1. (self: ctranslate2._ext.TranslationResult, arg0: int) -> dict
+
+Invoked with: TranslationResult(hypotheses=[['▁Привет', '.']], scores=[], attention=[], logits=[]), 'hypotheses'
+2026-03-21 21:05:50 - INFO - Using Argos Python API
+2026-03-21 21:05:50 - WARNING - API error, fallback to CLI: 'hypotheses'
+2026-03-21 21:07:20 - INFO - Using Argos Python API

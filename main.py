@@ -139,20 +139,32 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
     # Пробуем импортировать package напрямую (не зависит от spacy)
     try:
         AT_PACKAGE_MODULE = importlib.import_module("argostranslate.package")
-    except Exception:
+        print(f"DEBUG: AT_PACKAGE_MODULE imported successfully: {AT_PACKAGE_MODULE}")
+    except Exception as e:
+        print(f"DEBUG: AT_PACKAGE_MODULE import failed: {e}")
         AT_PACKAGE_MODULE = None
     
     # Пробуем импортировать translate (может упасть из-за spacy)
     try:
         AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
-    except Exception:
-        # Если translate не импортируется, создаем обходной путь через ctranslate2
+        print(f"DEBUG: AT_TRANSLATE_MODULE imported successfully: {AT_TRANSLATE_MODULE}")
+        
+        # Проверяем что функция translate действительно доступна
+        translate_fn = getattr(AT_TRANSLATE_MODULE, "translate", None)
+        if not callable(translate_fn):
+            print(f"DEBUG: translate function not callable in module")
+            AT_TRANSLATE_MODULE = None
+    except Exception as e:
+        print(f"DEBUG: AT_TRANSLATE_MODULE import failed: {e}")
         AT_TRANSLATE_MODULE = None
         
+        # Если translate не импортируется, создаем обходной путь через ctranslate2
         if AT_PACKAGE_MODULE is not None:
             try:
+                print("DEBUG: Attempting ctranslate2 fallback...")
                 # Импортируем ctranslate2
                 ctranslate2_module = importlib.import_module("ctranslate2")
+                print(f"DEBUG: ctranslate2 imported: {ctranslate2_module}")
                 
                 def custom_translate(text: str, from_code: str, to_code: str) -> str:
                     """Перевод текста через ctranslate2 напрямую."""
@@ -196,9 +208,15 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
                 import types
                 AT_TRANSLATE_MODULE = types.ModuleType("argostranslate.translate")
                 AT_TRANSLATE_MODULE.translate = custom_translate
+                print("DEBUG: ctranslate2 fallback created successfully")
             except Exception as exc2:
+                print(f"DEBUG: ctranslate2 fallback failed: {exc2}")
+                import traceback
+                traceback.print_exc()
                 # Не удалось создать обходной путь
                 pass
+
+print(f"DEBUG: Final AT_TRANSLATE_MODULE = {AT_TRANSLATE_MODULE}")
 
 PYPERCLIP_STATUS, PYPERCLIP_MODULE = safe_import("pyperclip")
 KEYBOARD_STATUS, KEYBOARD_MODULE = safe_import("keyboard")
