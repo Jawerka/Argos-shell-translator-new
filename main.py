@@ -145,19 +145,23 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
     # Пробуем импортировать translate (может упасть из-за spacy)
     try:
         AT_TRANSLATE_MODULE = importlib.import_module("argostranslate.translate")
-    except Exception as exc:
+    except Exception:
         # Если translate не импортируется, создаем обходной путь через ctranslate2
         AT_TRANSLATE_MODULE = None
         
         if AT_PACKAGE_MODULE is not None:
             try:
-                import ctranslate2
-                from argostranslate.package import get_installed_packages
-                from argostranslate import tokenizer as argos_tokenizer
+                # Импортируем ctranslate2 и tokenizer
+                ctranslate2_module = importlib.import_module("ctranslate2")
+                tokenizer_module = importlib.import_module("argostranslate.tokenizer")
                 
                 def custom_translate(text: str, from_code: str, to_code: str) -> str:
                     """Перевод текста через ctranslate2 напрямую."""
                     # Находим установленный пакет для пары языков
+                    get_installed_packages = getattr(AT_PACKAGE_MODULE, "get_installed_packages", None)
+                    if not callable(get_installed_packages):
+                        raise RuntimeError("get_installed_packages not available")
+                    
                     installed_packages = get_installed_packages()
                     pkg = None
                     for p in installed_packages:
@@ -170,17 +174,22 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
                     
                     # Инициализируем ctranslate2 модель
                     model_path = str(pkg.package_path / "model")
-                    translator = ctranslate2.Translator(model_path, device="cpu")
+                    translator = ctranslate2_module.Translator(model_path, device="cpu")
                     
                     # Токенизируем входной текст
-                    tokens = argos_tokenizer.Tokenizer().encode(text, [from_code])
+                    Tokenizer = getattr(tokenizer_module, "Tokenizer", None)
+                    if Tokenizer is None:
+                        raise RuntimeError("Tokenizer not available")
+                    
+                    tokenizer = Tokenizer()
+                    tokens = tokenizer.encode(text, [from_code])
                     
                     # Переводим
                     result = translator.translate_batch([tokens])
                     
                     # Декодируем результат
                     translated_tokens = result[0][0].hypotheses[0]
-                    translated_text = argos_tokenizer.Tokenizer().decode(translated_tokens, [to_code])
+                    translated_text = tokenizer.decode(translated_tokens, [to_code])
                     
                     return translated_text.strip()
                 
