@@ -151,9 +151,8 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
         
         if AT_PACKAGE_MODULE is not None:
             try:
-                # Импортируем ctranslate2 и tokenizer
+                # Импортируем ctranslate2
                 ctranslate2_module = importlib.import_module("ctranslate2")
-                tokenizer_module = importlib.import_module("argostranslate.tokenizer")
                 
                 def custom_translate(text: str, from_code: str, to_code: str) -> str:
                     """Перевод текста через ctranslate2 напрямую."""
@@ -172,24 +171,24 @@ if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not 
                     if pkg is None:
                         raise RuntimeError(f"No package for {from_code}->{to_code}")
                     
+                    # Используем токенизатор из пакета
+                    tokenizer = pkg.tokenizer
+                    if tokenizer is None:
+                        raise RuntimeError(f"No tokenizer for package {pkg.code}")
+                    
                     # Инициализируем ctranslate2 модель
                     model_path = str(pkg.package_path / "model")
                     translator = ctranslate2_module.Translator(model_path, device="cpu")
                     
                     # Токенизируем входной текст
-                    Tokenizer = getattr(tokenizer_module, "Tokenizer", None)
-                    if Tokenizer is None:
-                        raise RuntimeError("Tokenizer not available")
-                    
-                    tokenizer = Tokenizer()
-                    tokens = tokenizer.encode(text, [from_code])
+                    tokens = tokenizer.encode(text)
                     
                     # Переводим
                     result = translator.translate_batch([tokens])
                     
-                    # Декодируем результат
-                    translated_tokens = result[0][0].hypotheses[0]
-                    translated_text = tokenizer.decode(translated_tokens, [to_code])
+                    # Декодируем результат (используем атрибуты TranslationResult)
+                    translated_tokens = result[0].hypotheses[0]
+                    translated_text = tokenizer.decode(translated_tokens)
                     
                     return translated_text.strip()
                 
