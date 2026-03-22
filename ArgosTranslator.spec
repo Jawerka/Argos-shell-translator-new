@@ -45,21 +45,27 @@ pil_datas = collect_data_files('PIL')
 
 # Получаем путь к numpy для добавления .libs
 try:
-    numpy_path = get_package_paths('numpy')[0]
-    numpy_libs_path = Path(numpy_path) / '.libs'
+    import numpy
+    numpy_path = Path(numpy.__file__).parent
+    # Ищем .libs папку рядом с numpy
+    numpy_libs_path = numpy_path.parent / 'numpy.libs'
     if numpy_libs_path.exists():
-        numpy_binaries = [(str(f), str(f.parent.relative_to(numpy_path.parent))) 
-                          for f in numpy_libs_path.glob('*.dll')]
+        numpy_binaries = [(str(f), '.') for f in numpy_libs_path.glob('*.dll')]
+        print(f"DEBUG: Found numpy binaries: {len(numpy_binaries)} files in {numpy_libs_path}")
     else:
         numpy_binaries = []
-except Exception:
+        print(f"DEBUG: numpy.libs not found")
+        numpy_libs_path = None
+except Exception as e:
     numpy_binaries = []
+    numpy_libs_path = None
+    print(f"DEBUG: Error getting numpy binaries: {e}")
 
 # Анализ проекта
 a = Analysis(
     ['main.py'],
     pathex=[str(project_dir)],
-    binaries=numpy_binaries,
+    binaries=numpy_binaries if numpy_binaries else [],
     datas=[
         # Иконки
         (str(project_dir / 'argos_translate.ico'), '.'),
@@ -81,12 +87,17 @@ a = Analysis(
         *pystray_modules,
         # Все подмодули PIL
         *pil_modules,
+        # numpy требуется для ctranslate2 - используем hook-numpy.py
+        # hook-numpy.py автоматически собирает все подмодули
+        'numpy',
+        # ctranslate2 требует numpy
+        'ctranslate2',
+        'ctranslate2.specs',
+        'ctranslate2.converters',
         # Опциональные зависимости
         'pyperclip',
         'keyboard',
         'langdetect',
-        # numpy требуется для ctranslate2
-        'numpy',
         # Tkinter
         'tkinter',
         'tkinter.constants',
@@ -108,7 +119,11 @@ a = Analysis(
         'time',
     ],
     hookspath=[str(project_dir)],  # Путь к кастомным хукам
-    hooksconfig={},
+    hooksconfig={
+        'numpy': {
+            'hook_module': 'hook-numpy'
+        }
+    },
     runtime_hooks=[],
     excludes=[
         # Исключаем тяжёлые и ненужные пакеты
@@ -145,7 +160,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # Создание исполняемого файла
-# COLLECT вместо EXE - сборка в папку (проще для отладки)
+# EXE для однофайловой сборки
 exe = EXE(
     pyz,
     a.scripts,
@@ -168,7 +183,7 @@ exe = EXE(
     icon=[str(project_dir / 'argos_translate.ico')],
 )
 
-# Сборка в папку вместо одного файла
+# Сборка в папку вместо одного файла (для отладки)
 coll = COLLECT(
     exe,
     a.binaries,
