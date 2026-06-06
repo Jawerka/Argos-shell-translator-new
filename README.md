@@ -20,36 +20,46 @@
 
 Argos Translate Streaming — это десктопное приложение для мгновенного перевода текста между языками. Приложение предоставляет графический интерфейс на Tkinter и поддерживает потоковый режим перевода, когда перевод обновляется автоматически при изменении исходного текста.
 
-Программа использует движок **Argos Translate** для выполнения перевода и может работать как через Python API, так и через CLI утилиту `argos-translate`. Приложение поддерживает автоматическое определение языка исходного текста и имеет множество удобных функций, таких как синхронизация прокрутки, работа в системном трее и глобальные горячие клавиши.
+Программа использует два движка перевода:
+- **Argos Translate** (офлайн) — через Python API или CLI `argos-translate`
+- **LLM** (опционально) — OpenAI-compatible API: LOCAL, OpenRouter или Custom URL
+
+Оба движка работают параллельно; в интерфейсе видна одна вкладка (Argos / LLM). Приложение поддерживает тёмную тему, окно настроек, автоматическое определение языка, синхронизацию прокрутки, работу в системном трее и глобальные горячие клавиши.
 
 ## Функциональность
 
 ### Основные возможности
 
-- **Потоковый перевод (Streaming)**: перевод обновляется автоматически при наборе текста с задержкой (debounce)
-- **Поддержка API и CLI**: приложение автоматически использует доступный бэкенд (API или CLI)
-- **Автоматическое определение языка**: определение языка через `langdetect` или эвристику на основе кириллицы
-- **Синхронизация прокрутки**: прокрутка исходного текста и перевода синхронизированы по позиции
-- **Работа в системном трее**: возможность сворачивания в трей с горячими клавишами
-- **Сохранение настроек**: размер окна, выбранные языки, режимы сохраняются между сеансами
-- **Установка моделей из bundle**: возможность установки моделей перевода из папки `argos_models`
-- **Многоязычный интерфейс**: поддержка 14+ языков (EN, RU, DE, FR, ES, IT, PT, UK, ZH, JA, KO, AR, HI, TR)
+- **Потоковый перевод (Streaming)**: Argos и LLM с отдельными задержками (debounce)
+- **Два движка**: вкладки Argos / LLM; Copy копирует с активной вкладки
+- **LLM-провайдеры**: LOCAL (`http://192.168.88.41:8989/v1`), OpenRouter, Custom
+- **Окно настроек** (⚙ / `Ctrl+,`): тема, прозрачность, LLM, debounce, целевой язык AUTO
+- **Тёмная тема** по умолчанию
+- **Поддержка API и CLI Argos**: автоматический выбор бэкенда
+- **Автоматическое определение языка**: `langdetect` или эвристика
+- **Синхронизация прокрутки** между исходником и активной вкладкой перевода
+- **Системный трей**: крестик сворачивает в трей; выход — ПКМ → Выход
+- **Устойчивая геометрия окна**: позиция/размер с учётом DPI и мониторов
+- **Установка моделей из bundle**: `argos_models/` (en↔ru)
+- **14+ языков** в селекторе
+- **Перевод файлов**: TXT, MD, CSV, JSON и др. plain-text; автоопределение кодировки (UTF-8, cp1251, cp866, koi8-r…)
 
 ### Особенности интерфейса
 
-- Две панели: исходный текст и перевод
+- Две панели: исходный текст и перевод (вкладки Argos / LLM)
 - Компактный селектор языков с кнопкой обмена
-- Режим "Copy & Hide": копирование перевода и скрытие в трей
-- Статусная строка с подсказками
+- Режим "Copy & Hide": копирование с активной вкладки и скрытие в трей
+- Индикатор LLM в статус-баре (`● LLM`)
 - Поддержка вставки из буфера обмена
 
 ## Требования
 
 ### Обязательные зависимости
 
-- **Python**: 3.8 или выше
-- **argostranslate**: основной движок перевода (API + CLI)
+- **Python**: 3.10–3.12 (рекомендуется; 3.14 — с ограничениями)
+- **argostranslate**: офлайн-движок перевода (API + CLI)
 - **pyperclip**: работа с буфером обмена
+- **httpx**: HTTP-клиент для LLM API
 
 ### Опциональные зависимости
 
@@ -108,6 +118,8 @@ pip install keyboard langdetect pystray Pillow
 
 ```bash
 python main.py
+# или через пакет:
+python -m argos_translator
 ```
 
 ### Запуск без консоли (Windows)
@@ -172,6 +184,9 @@ for pkg in installed:
 | Комбинация | Действие |
 |------------|----------|
 | `Ctrl + Enter` | Выполнить перевод |
+| `Ctrl + O` | Открыть текстовый файл |
+| `Ctrl + Shift + S` | Сохранить перевод (активная вкладка) |
+| `Ctrl + ,` | Открыть настройки |
 | `Ctrl + S` | Поменять языки местами |
 | `Ctrl + Shift + C` | Захватить текст из буфера обмена (глобально) |
 
@@ -180,23 +195,77 @@ for pkg in installed:
 ### Файлы конфигурации
 
 - **Настройки**: `~/.argos_translate/settings.json`
-- **Логи**: `~/.argos_translate/app_streaming.log`
+- **Логи**: `log/app_debug.log` (dev, в каталоге проекта) или `{exe_dir}/log/app_debug.log` (portable EXE)
 
-### Структура settings.json
+### Перевод файлов
+
+Меню **Файл**:
+- **Открыть…** — загрузить файл в панель Source и запустить перевод
+- **Сохранить перевод…** — сохранить активную вкладку (Argos или LLM)
+- **Сохранить оба…** — `*_translated.ext` и `*_translated_llm.ext`
+
+Кодировка при чтении определяется автоматически (`charset-normalizer` + эвристики). Параметры сохранения — вкладка **Файлы** в настройках.
+
+**Drag & Drop** (Windows): перетащите файл на окно — нужен опциональный пакет `pip install windnd`.
+
+При открытии/переводе большого файла (> `large_file_warn_chars`, по умолчанию 50 000 символов) показывается предупреждение. Во время перевода файла в статусной строке отображается progress bar и «Файл: N% (чанк X/Y)».
+
+Блоки кода Markdown (`` ```…``` ``) по умолчанию **не переводятся** — включается опцией «Переводить блоки кода Markdown» на вкладке **Файлы**.
+
+### Структура settings.json (v7)
 
 ```json
 {
+  "version": 7,
   "window": {
-    "geometry": "1000x700+100+100",
-    "streaming": true,
-    "scroll_sync": true
+    "state": "normal",
+    "x": 100, "y": 100, "width": 1000, "height": 700,
+    "opacity": 1.0,
+    "theme": "dark"
   },
-  "languages": {
-    "from": "auto",
-    "to": "ru"
+  "translation": {
+    "default_engine": "both_adaptive",
+    "streaming": true,
+    "debounce_ms": 700,
+    "llm_debounce_ms": 1200,
+    "scroll_sync": true,
+    "auto_target_lang": "ru",
+    "cache_enabled": false,
+    "cache_size": 500
+  },
+  "languages": { "from": "auto", "to": "ru" },
+  "llm": {
+    "enabled": true,
+    "provider": "local",
+    "base_url": "http://192.168.88.41:8989/v1",
+    "model": "",
+    "api_keys": { "openrouter": "" }
+  },
+  "ui": { "active_translation_tab": "argos" },
+  "files": {
+    "output_encoding": "same",
+    "output_suffix": "_translated",
+    "max_file_size_mb": 10,
+    "hotkey_auto_translate_max_chars": 500,
+    "large_file_warn_chars": 50000,
+    "translate_code_blocks": false
+  },
+  "argos": {
+    "packages_dir": "",
+    "prefer_api_over_cli": true,
+    "bundle_models_on_start": true
+  },
+  "behavior": {
+    "close_action": "tray",
+    "start_minimized_to_tray": false,
+    "restore_clipboard_after_capture": true,
+    "global_hotkey": "ctrl+shift+c",
+    "minimize_to_tray_on_copy_hide": true
   }
 }
 ```
+
+Старые настройки (v1 с `geometry`) мигрируются автоматически при загрузке.
 
 ### Параметры UI
 
@@ -227,15 +296,26 @@ class UIConfig:
 
 ```
 Argos-shell-translator-new/
-├── main.py              # Главный файл приложения
-├── install_models.py    # Установка моделей из bundle
-├── requirements.txt     # Зависимости Python
-├── .gitignore          # Игнорируемые файлы
-├── README.md           # Этот файл
-├── argos_models/       # bundle моделей (опционально)
-│   └── *.argosmodel
-├── installers/         # Установщики (опционально)
-└── venv/              # Виртуальное окружение (игнорируется)
+├── assets/                    # argos_translate.ico, .png
+├── main.py                    # тонкий entry (sys.path + runner)
+├── pyproject.toml
+├── ArgosTranslator.spec       # release-сборка (console=False)
+├── ArgosTranslator.debug.spec # debug-сборка (console=True)
+├── hooks/                     # PyInstaller hooks
+├── scripts/build.bat
+├── src/argos_translator/
+│   ├── app.py                 # TranslatorApp (координатор перевода, ~1200 строк)
+│   ├── bootstrap/runner.py    # DPI, проверки, mainloop
+│   ├── config/                # settings v7, paths, llm_providers
+│   ├── engines/               # argos_engine, llm_engine, factory, base.py
+│   ├── services/              # tray, hotkeys, clipboard, frozen_bootstrap, …
+│   └── ui/                    # main_window, text_panel, settings_dialog, …
+├── tests/                     # pytest (117 tests)
+│   └── fixtures/encodings/    # cp1251, utf-8, koi8-r, …
+├── docs/UI_BASELINE.md        # описание UI v2
+├── CHANGELOG.md
+├── argos_models/              # bundle en↔ru (опционально)
+└── log/                       # app_debug.log
 ```
 
 ### Основные классы
@@ -281,13 +361,16 @@ Argos-shell-translator-new/
 
 ### Механизм потокового перевода
 
-1. Пользователь вводит текст → событие `<<Modified>>`
-2. Запускается `debounce_job` (700мс)
-3. По истечении времени → `translate(streaming=True)`
-4. Текст разбивается на параграфы → предложения
-5. Для каждого предложения → отдельный перевод в worker потоке
-6. Результаты помещаются в очередь → `_poll_translate_queue`
-7. UI обновляется через `_update_translated_text()`
+**Argos:**
+1. Ввод текста → debounce (`debounce_ms`, по умолчанию 700 мс)
+2. Разбивка на параграфы → предложения
+3. Worker-поток переводит предложения по очереди
+4. Результаты через очередь → вкладка Argos
+
+**LLM** (если включён в настройках):
+1. Отдельный debounce (`llm_debounce_ms`, по умолчанию 1200 мс)
+2. Один запрос на весь текст (streaming SSE)
+3. Результат → вкладка LLM; Argos продолжает работать параллельно
 
 ### Синхронизация прокрутки
 
@@ -351,6 +434,13 @@ pip install pystray Pillow
 
 ### Трей работает некорректно на Linux
 
+Если левый клик по иконке не разворачивает окно, задайте backend GTK:
+
+```bash
+export PYSTRAY_BACKEND=gtk
+python main.py
+```
+
 Проверьте, что установлен `libappindicator`:
 ```bash
 sudo apt-get install libappindicator3-1
@@ -385,7 +475,7 @@ class UIConfig:
 
 ### Логирование
 
-Логи пишутся в `~/.argos_translate/app_streaming.log`. Уровень логирования можно изменить в `LoggingConfig.setup()`:
+Логи пишутся в `log/app_debug.log` (разработка) или `{exe_dir}/log/app_debug.log` (собранный portable EXE). Уровень логирования можно изменить в `LoggingConfig.setup()`:
 
 ```python
 logging.basicConfig(
@@ -400,7 +490,7 @@ logging.basicConfig(
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --icon=argos_translate.ico main.py
+pyinstaller --onefile --windowed --icon=assets/argos_translate.ico main.py
 ```
 
 Используйте `ArgosTranslator.spec` для расширенных настроек сборки:

@@ -1,13 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-PyInstaller spec — portable onedir сборка Argos Translate Streaming.
-
-Использование:
-    pyinstaller ArgosTranslator.spec --clean
-
-Результат: dist/ArgosTranslator/ArgosTranslator.exe
-Debug-сборка с консолью: pyinstaller ArgosTranslator.debug.spec --clean
-"""
+# Debug-сборка с консолью для диагностики ошибок.
 
 from pathlib import Path
 
@@ -17,7 +9,6 @@ project_dir = Path(SPEC).parent.resolve() if "SPEC" in globals() else Path.cwd()
 src_dir = project_dir / "src"
 hooks_dir = project_dir / "hooks"
 
-# --- Зависимости ---
 argos_modules = collect_submodules("argostranslate")
 argos_datas = collect_data_files("argostranslate")
 pystray_datas = collect_data_files("pystray")
@@ -36,12 +27,10 @@ try:
 except Exception:
     numpy_binaries = []
 
-# --- Данные приложения ---
 app_datas = [
     (str(project_dir / "assets" / "argos_translate.ico"), "assets"),
     (str(project_dir / "assets" / "argos_translate.png"), "assets"),
 ]
-# Fallback: иконки в корне (legacy)
 for name in ("argos_translate.ico", "argos_translate.png"):
     legacy = project_dir / name
     if legacy.exists() and not (project_dir / "assets" / name).exists():
@@ -53,17 +42,7 @@ _icon_path = project_dir / "assets" / "argos_translate.ico"
 if not _icon_path.exists():
     _icon_path = project_dir / "argos_translate.ico"
 
-_version_file = project_dir / "assets" / "version_info.txt"
-_manifest_file = project_dir / "assets" / "app.manifest"
-
-all_datas = [
-    *app_datas,
-    *argos_datas,
-    *pystray_datas,
-    *pil_datas,
-    *httpx_datas,
-    *ctk_datas,
-]
+all_datas = [*app_datas, *argos_datas, *pystray_datas, *pil_datas, *httpx_datas, *ctk_datas]
 
 a = Analysis(
     ["main.py"],
@@ -72,22 +51,11 @@ a = Analysis(
     datas=all_datas,
     hiddenimports=[
         *argos_modules,
-        "argostranslate.translate",
-        "argostranslate.package",
         "ctranslate2",
         "numpy",
         "httpx",
-        "httpcore",
         "charset_normalizer",
-        "charset_normalizer.md",
-        "pystray._win32",
-        "pyperclip",
-        "keyboard",
-        "langdetect",
         "argos_translator",
-        "argos_translator.config.settings",
-        "argos_translator.engines.llm_engine",
-        "argos_translator.services.document_io",
         *ctk_modules,
         "customtkinter",
         "darkdetect",
@@ -95,20 +63,8 @@ a = Analysis(
     hookspath=[str(hooks_dir)],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        "matplotlib",
-        "scipy",
-        "pandas",
-        "pytest",
-        "IPython",
-        "jupyter",
-        "notebook",
-        "sphinx",
-        "torch",
-        "tensorflow",
-    ],
+    excludes=["matplotlib", "scipy", "pandas", "pytest", "torch"],
     noarchive=False,
-    optimize=0,
 )
 
 pyz = PYZ(a.pure)
@@ -119,25 +75,9 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="ArgosTranslator",
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=["*.dll", "vcruntime*.dll", "python*.dll"],
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
+    debug=True,
+    console=True,
     icon=str(_icon_path),
-    version=str(_version_file) if _version_file.exists() else None,
-    manifest=str(_manifest_file) if _manifest_file.exists() else None,
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=["*.dll"],
-    name="ArgosTranslator",
-)
+coll = COLLECT(exe, a.binaries, a.datas, name="ArgosTranslator")

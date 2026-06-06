@@ -31,3 +31,5 @@ wheels/
 # Project specific
 argos_models/
 installers/
+log/
+*.log

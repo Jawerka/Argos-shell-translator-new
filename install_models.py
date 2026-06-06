@@ -1,48 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Автоматическая установка моделей argos-translate.
-Копирует .argosmodel файлы из локальной директории в системную.
-"""
+"""Установка моделей argos-translate из папки argos_models/."""
 
-import shutil
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
+_SRC = Path(__file__).resolve().parent / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
-def get_argos_packages_dir() -> Path:
-    """Получить директорию пакетов argos-translate."""
-    if Path.home().exists():
-        return Path.home() / ".local" / "share" / "argos-translate" / "packages"
-    # Fallback для Windows
-    return Path.home() / ".argos-translate" / "packages"
+from argos_translator.config.paths import get_resource_path
+from argos_translator.services.model_manager import ModelManager
 
 
-def install_models() -> int:
-    """Установить модели из локальной папки в системную."""
-    script_dir = Path(__file__).parent
-    models_dir = script_dir / "argos_models"
-    packages_dir = get_argos_packages_dir()
-
-    if not models_dir.exists():
-        print(f"Директория с моделями не найдена: {models_dir}")
+def main() -> int:
+    bundle = get_resource_path("argos_models")
+    if not bundle.exists():
+        print(f"Директория с моделями не найдена: {bundle}")
         return 1
 
-    # Создаём целевую директорию
-    packages_dir.mkdir(parents=True, exist_ok=True)
-
-    installed = 0
-    for model_file in models_dir.glob("*.argosmodel"):
-        dest = packages_dir / model_file.name
-        if not dest.exists():
-            print(f"Установка модели: {model_file.name}")
-            shutil.copy2(model_file, dest)
-            installed += 1
-        else:
-            print(f"Модель уже установлена: {model_file.name}")
-
-    print(f"\nГотово! Установлено моделей: {installed}")
+    mgr = ModelManager()
+    print(f"Пакеты: {mgr.packages_dir}")
+    installed = mgr.install_from_bundle(bundle)
+    pairs = mgr.list_installed_pairs()
+    print(f"\nГотово! Установлено из bundle: {installed}")
+    print(f"Доступные пары: {', '.join(pairs) if pairs else 'нет'}")
     return 0
 
 
 if __name__ == "__main__":
-    exit(install_models())
+    raise SystemExit(main())
