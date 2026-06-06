@@ -9,6 +9,7 @@ import customtkinter as ctk
 from argos_translator.ui.layout_config import (
     CORNER_RADIUS,
     LABEL_FONT_SIZE,
+    RADIUS_CONTROL,
     TITLE_FONT_SIZE,
     UI_FONT_FAMILY,
     get_button_accent_kwargs,
@@ -122,7 +123,7 @@ def ghost_button(
     colors = get_color_theme(theme)
     opts = {
         "height": get_button_accent_kwargs(theme)["height"],
-        "corner_radius": CORNER_RADIUS,
+        "corner_radius": RADIUS_CONTROL,
         "fg_color": "transparent",
         "hover_color": colors["accent"],
         "border_width": 1,

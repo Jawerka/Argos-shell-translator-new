@@ -7,7 +7,7 @@ from typing import Dict, List
 import customtkinter as ctk
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.layout_config import BTN_HEIGHT_SM, COMBO_WIDTH, UI_FONT_FAMILY, get_combobox_kwargs
+from argos_translator.ui.layout_config import BTN_HEIGHT_SM, BUTTON_GAP, COMBO_WIDTH, UI_FONT_FAMILY, get_combobox_kwargs
 from argos_translator.ui.themes import ThemeName, get_color_theme
 from argos_translator.ui.tooltip import create_tooltip
 from argos_translator.ui.widgets import accent_button, TransparentFrame
@@ -34,7 +34,12 @@ class CompactLanguageSelector(TransparentFrame):
         label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=12)
         combo_kw = get_combobox_kwargs(self.theme)
 
-        ctk.CTkLabel(self, text="Из", font=label_font, text_color=colors["text_muted"]).pack(side="left")
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(5, weight=1)
+
+        ctk.CTkLabel(self, text="Из", font=label_font, text_color=colors["text_muted"]).grid(
+            row=0, column=0, padx=(0, BUTTON_GAP)
+        )
 
         self.var_from = ctk.StringVar(value="AUTO")
         self.combo_from = ctk.CTkComboBox(
@@ -50,7 +55,14 @@ class CompactLanguageSelector(TransparentFrame):
             font=label_font,
             **combo_kw,
         )
-        self.combo_from.pack(side="left")
+        self.combo_from.grid(row=0, column=1, sticky="ew", padx=(0, BUTTON_GAP))
+
+        ctk.CTkLabel(
+            self,
+            text="→",
+            font=ctk.CTkFont(family=UI_FONT_FAMILY, size=14),
+            text_color=colors["text_muted"],
+        ).grid(row=0, column=2, padx=(0, BUTTON_GAP))
 
         self.btn_swap = accent_button(
             self,
@@ -61,10 +73,12 @@ class CompactLanguageSelector(TransparentFrame):
             height=BTN_HEIGHT_SM,
             font=ctk.CTkFont(size=14),
         )
-        self.btn_swap.pack(side="left")
+        self.btn_swap.grid(row=0, column=3, padx=(0, BUTTON_GAP))
         create_tooltip(self.btn_swap, "Поменять языки местами", theme=self.theme)
 
-        ctk.CTkLabel(self, text="В", font=label_font, text_color=colors["text_muted"]).pack(side="left")
+        ctk.CTkLabel(self, text="В", font=label_font, text_color=colors["text_muted"]).grid(
+            row=0, column=4, padx=(0, BUTTON_GAP)
+        )
 
         options = self._get_language_options()
         default_to = (
@@ -86,7 +100,7 @@ class CompactLanguageSelector(TransparentFrame):
             font=label_font,
             **combo_kw,
         )
-        self.combo_to.pack(side="left")
+        self.combo_to.grid(row=0, column=5, sticky="ew")
 
     def _get_language_options(self) -> List[str]:
         return [f"{code.upper()} - {name}" for code, name in sorted(self.languages.items())]

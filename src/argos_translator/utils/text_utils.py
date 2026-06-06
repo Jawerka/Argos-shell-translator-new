@@ -11,6 +11,9 @@ from argos_translator.utils.imports import LANGDETECT_MODULE, LANGDETECT_STATUS,
 
 logger = logging.getLogger("ArgosStreaming")
 
+# Короткие фразы langdetect часто путает (en↔nl, ru↔bg); ниже порога — только по алфавиту.
+_MIN_LANGDETECT_CHARS = 20
+
 
 class TextUtils:
     SENTENCE_REGEX = re.compile(r"(?<=\S[.!?…])\s+(?=[A-ZА-ЯЁ0-9\"'«\"])")
@@ -40,22 +43,37 @@ class TextUtils:
         if not text:
             return "en"
 
+        if re.search(r"[А-Яа-яЁё]", text):
+            cyrillic_default = "ru"
+        else:
+            cyrillic_default = None
+
+        if len(text) < _MIN_LANGDETECT_CHARS:
+            return cyrillic_default or "en"
+
         if LANGDETECT_STATUS == ImportStatus.SUCCESS and LANGDETECT_MODULE is not None:
             try:
                 detect_fn = getattr(LANGDETECT_MODULE, "detect_langs", None)
                 if callable(detect_fn):
                     results = detect_fn(text)
                     if results:
-                        code = getattr(results[0], "lang", None)
+                        top = results[0]
+                        code = getattr(top, "lang", None)
+                        prob = float(getattr(top, "prob", 0.0))
                         if code:
-                            logger.debug("langdetect -> %s", code)
-                            return code.lower()
+                            code = code.lower()
+                            logger.debug("langdetect -> %s (%.2f)", code, prob)
+                            if cyrillic_default:
+                                if code == "ru":
+                                    return "ru"
+                                if len(text) < 120 and code in ("bg", "uk", "mk", "sr"):
+                                    return "ru"
+                                return code
+                            return code
             except Exception as exc:
                 logger.debug("langdetect failed: %s", exc)
 
-        if re.search(r"[А-Яа-яЁё]", text):
-            return "ru"
-        return "en"
+        return cyrillic_default or "en"
 
     @staticmethod
     def split_into_paragraphs(text: str) -> List[str]:

@@ -939,7 +939,17 @@ class TranslatorApp:
                 max_size=new_settings.behavior.translation_cache_size
             )
 
-        SettingsDialog(self.root, self.settings, on_apply, self.cfg)
+        def on_geometry_save(partial: AppSettings) -> None:
+            self.settings.settings_dialog_state = partial.settings_dialog_state
+            save_settings(self.settings)
+
+        SettingsDialog(
+            self.root,
+            self.settings,
+            on_apply,
+            self.cfg,
+            on_geometry_save=on_geometry_save,
+        )
 
     def _on_translation_tab_changed(self, tab_id: str) -> None:
         self.settings.active_translation_tab = tab_id
@@ -1028,7 +1038,7 @@ class TranslatorApp:
             return
         percent = min(100.0, (done / total) * 100)
         self.file_progress.set(percent / 100.0)
-        self.file_progress_frame.grid()
+        self.file_progress_frame.pack(side="right")
         para_hint = ""
         if self._document_paragraph_count:
             para_hint = f", ~{self._document_paragraph_count} абз."
@@ -1038,7 +1048,7 @@ class TranslatorApp:
         self.file_progress_label.grid()
 
     def _hide_file_progress(self) -> None:
-        self.file_progress_frame.grid_remove()
+        self.file_progress_frame.pack_forget()
         self.file_progress_label.grid_remove()
         self.file_progress.set(0)
         self.file_progress_var.set("")

@@ -10,13 +10,14 @@ from typing import Any, Callable, List, Optional, Tuple
 import customtkinter as ctk
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.font_scale import scaled_text_font, scaled_title_font
+from argos_translator.ui.font_scale import scaled_text_font, scaled_title_font, scaled_ui_font
 from argos_translator.ui.layout_config import (
     CARD_PADX,
     CARD_PADY,
     PANEL_BUTTON_ROW_HEIGHT,
     PANEL_HEADER_HEIGHT,
     PANEL_TAB_ROW_HEIGHT,
+    RADIUS_CONTROL,
     get_text_inset_kwargs,
 )
 from argos_translator.ui.themes import ThemeName, get_color_theme
@@ -42,6 +43,7 @@ class TextPanel(CardFrame):
         cfg: Optional[UIConfig] = None,
         theme: ThemeName = "dark",
         font_scale: float = 1.0,
+        show_char_count: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(parent, theme=theme, **kwargs)
@@ -52,7 +54,10 @@ class TextPanel(CardFrame):
         self.theme = theme
         self._font_scale = font_scale
         self._colors = get_color_theme(theme)
+        self._show_char_count = show_char_count and editable
+        self._char_count_job: Optional[str] = None
         self.text_host: ctk.CTkFrame
+        self._char_count_label: Optional[ctk.CTkLabel] = None
         self._create_widgets()
 
     def _create_widgets(self) -> None:
@@ -65,13 +70,25 @@ class TextPanel(CardFrame):
         header = ctk.CTkFrame(inner, height=PANEL_HEADER_HEIGHT, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
+        header_inner = transparent_frame(header)
+        header_inner.pack(fill="both", expand=True)
+
         self._title_label = panel_title_label(
-            header,
+            header_inner,
             self.title,
             theme=self.theme,
             font=scaled_title_font(self._font_scale),
         )
-        self._title_label.pack(anchor="w")
+        self._title_label.pack(side="left", anchor="w")
+
+        if self._show_char_count:
+            self._char_count_label = ctk.CTkLabel(
+                header_inner,
+                text="0 симв.",
+                font=scaled_ui_font(self._font_scale, 10),
+                text_color=colors["text_muted"],
+            )
+            self._char_count_label.pack(side="right", anchor="e")
 
         tab_row = ctk.CTkFrame(inner, height=PANEL_TAB_ROW_HEIGHT, fg_color="transparent")
         tab_row.grid(row=1, column=0, sticky="ew")
@@ -88,15 +105,18 @@ class TextPanel(CardFrame):
             fg_color=colors["input"],
             text_color=colors["text_primary"],
             border_width=0,
-            corner_radius=0,
+            corner_radius=RADIUS_CONTROL,
             wrap="word",
         )
-        self._ctk_text.grid(row=0, column=0, sticky="nsew")
+        self._ctk_text.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
 
         self.text = self._ctk_text._textbox
 
         if not self.editable:
             self._ctk_text.configure(state="disabled")
+        elif self._show_char_count:
+            self.text.bind("<<Modified>>", self._schedule_char_count_update, add="+")
+            self._update_char_count()
 
         btn_frame = ctk.CTkFrame(inner, height=PANEL_BUTTON_ROW_HEIGHT, fg_color="transparent")
         btn_frame.grid(row=3, column=0, sticky="ew")
@@ -116,10 +136,31 @@ class TextPanel(CardFrame):
             for btn_text, btn_command in self.extra_buttons:
                 ghost_button(btn_inner, btn_text, btn_command, theme=self.theme, width=120).pack(side="left")
 
+    def _schedule_char_count_update(self, _event: Optional[tk.Event] = None) -> None:
+        if self._char_count_job:
+            try:
+                self.after_cancel(self._char_count_job)
+            except Exception:
+                pass
+        self._char_count_job = self.after(120, self._update_char_count)
+
+    def _update_char_count(self) -> None:
+        self._char_count_job = None
+        if self._char_count_label is None:
+            return
+        try:
+            text = self._ctk_text.get("1.0", "end-1c")
+            count = len(text)
+            self._char_count_label.configure(text=f"{count} симв.")
+        except Exception:
+            pass
+
     def apply_font_scale(self, scale: float) -> None:
         self._font_scale = scale
         self._ctk_text.configure(font=scaled_text_font(scale))
         self._title_label.configure(font=scaled_title_font(scale))
+        if self._char_count_label is not None:
+            self._char_count_label.configure(font=scaled_ui_font(scale, 10))
 
     def get_text(self) -> str:
         if self.editable:
@@ -167,6 +208,8 @@ class TextPanel(CardFrame):
                 self.text.yview_moveto(new_frac)
             except Exception:
                 pass
+            if self._show_char_count:
+                self._update_char_count()
         except Exception as exc:
             logger.debug("set_text error: %s", exc)
 
@@ -210,3 +253,5 @@ class TextPanel(CardFrame):
         self._ctk_text.delete("1.0", "end")
         if not self.editable:
             self._ctk_text.configure(state="disabled")
+        if self._show_char_count:
+            self._update_char_count()

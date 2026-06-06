@@ -1,4 +1,4 @@
-"""Построение главного окна (CustomTkinter, flat layout)."""
+"""Построение главного окна (CustomTkinter, structured flat v2.1)."""
 
 from __future__ import annotations
 
@@ -10,15 +10,22 @@ import tkinter as tk
 
 from argos_translator.config.constants import UIConfig
 from argos_translator.config.settings import AppSettings
-from argos_translator.ui.file_menu import clear_window_menubar, create_file_popup_menu, show_popup_menu
+from argos_translator.ui.file_menu import (
+    clear_window_menubar,
+    create_file_popup_menu,
+    create_toolbar_more_menu,
+    show_popup_menu,
+)
 from argos_translator.ui.language_selector import CompactLanguageSelector
-from argos_translator.ui.font_scale import scaled_ui_font
+from argos_translator.ui.font_scale import scaled_title_font, scaled_ui_font
 from argos_translator.ui.layout_config import (
+    BUTTON_GAP,
     CARD_PADX,
     CARD_PADY,
     ELEMENT_GAP,
     PROGRESS_HEIGHT,
     PROGRESS_WIDTH,
+    TOOLBAR_HEIGHT,
     WINDOW_PADX,
     WINDOW_PADY,
 )
@@ -31,9 +38,7 @@ from argos_translator.ui.widgets import (
     ghost_button,
     icon_button,
     primary_button,
-    themed_checkbox,
     transparent_frame,
-    vertical_separator,
 )
 
 
@@ -108,9 +113,17 @@ def build_main_window(
     toolbar.grid(row=0, column=0, sticky="ew", pady=(0, ELEMENT_GAP))
     toolbar_inner = transparent_frame(toolbar)
     toolbar_inner.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
+    toolbar_inner.grid_columnconfigure(1, weight=1)
 
-    toolbar_row = transparent_frame(toolbar_inner)
-    toolbar_row.pack(fill="x")
+    toolbar_left = transparent_frame(toolbar_inner)
+    toolbar_left.grid(row=0, column=0, sticky="w")
+
+    toolbar_center = transparent_frame(toolbar_inner)
+    toolbar_center.grid(row=0, column=1, sticky="ew", padx=(BUTTON_GAP, BUTTON_GAP))
+    toolbar_center.grid_columnconfigure(0, weight=1)
+
+    toolbar_right = transparent_frame(toolbar_inner)
+    toolbar_right.grid(row=0, column=2, sticky="e")
 
     file_menu = create_file_popup_menu(
         root,
@@ -121,7 +134,7 @@ def build_main_window(
         theme=theme,
     )
     file_btn = ghost_button(
-        toolbar_row,
+        toolbar_left,
         "Файл ▾",
         command=lambda: show_popup_menu(file_btn, file_menu),
         theme=theme,
@@ -130,51 +143,61 @@ def build_main_window(
     file_btn.pack(side="left")
     create_tooltip(file_btn, "Открыть, сохранить, выход", theme=theme)
 
-    vertical_separator(toolbar_row, theme=theme, height=30).pack(side="left")
+    ctk.CTkLabel(
+        toolbar_left,
+        text="Argos Translate",
+        font=scaled_title_font(font_scale),
+        text_color=colors["text_primary"],
+    ).pack(side="left", padx=(BUTTON_GAP, 0))
 
-    lang_widget = CompactLanguageSelector(toolbar_row, languages, cfg, theme=theme)
-    lang_widget.pack(side="left", fill="x", expand=True)
-
-    vertical_separator(toolbar_row, theme=theme, height=30).pack(side="left")
-
-    actions = transparent_frame(toolbar_row)
-    actions.pack(side="right")
+    lang_widget = CompactLanguageSelector(toolbar_center, languages, cfg, theme=theme)
+    lang_widget.grid(row=0, column=0, sticky="ew")
 
     streaming_enabled = tk.BooleanVar(value=settings.streaming)
-    stream_cb = themed_checkbox(
-        actions,
-        "Поток",
-        streaming_enabled,
-        command=callbacks.on_stream_toggle,
-        theme=theme,
-        width=72,
-    )
-    stream_cb.pack(side="left")
-    create_tooltip(stream_cb, "Автоперевод при вводе текста", theme=theme)
-
     scroll_sync_enabled = tk.BooleanVar(value=settings.scroll_sync)
-    sync_cb = themed_checkbox(
-        actions,
-        "Синхр.",
-        scroll_sync_enabled,
-        command=callbacks.on_scroll_sync_toggle,
-        theme=theme,
-        width=72,
-    )
-    sync_cb.pack(side="left")
-    create_tooltip(sync_cb, "Синхронная прокрутка исходника и перевода", theme=theme)
 
-    translate_btn = primary_button(actions, "Перевод", callbacks.on_translate, theme=theme, width=96)
-    translate_btn.pack(side="left")
+    more_menu = create_toolbar_more_menu(
+        root,
+        streaming_var=streaming_enabled,
+        scroll_sync_var=scroll_sync_enabled,
+        on_stream_toggle=callbacks.on_stream_toggle,
+        on_scroll_sync_toggle=callbacks.on_scroll_sync_toggle,
+        theme=theme,
+    )
+    more_btn = ghost_button(
+        toolbar_right,
+        "Ещё ▾",
+        command=lambda: show_popup_menu(more_btn, more_menu),
+        theme=theme,
+        width=64,
+    )
+    more_btn.pack(side="left", padx=(0, BUTTON_GAP))
+    create_tooltip(
+        more_btn,
+        "Потоковый перевод и синхронизация прокрутки",
+        theme=theme,
+    )
+
+    translate_btn = primary_button(
+        toolbar_right, "Перевести", callbacks.on_translate, theme=theme, width=110
+    )
+    translate_btn.pack(side="left", padx=(0, BUTTON_GAP))
     create_tooltip(translate_btn, "Перевести (Ctrl+Enter)", theme=theme)
 
-    cancel_btn = ghost_button(actions, "Стоп", callbacks.on_cancel, theme=theme, width=64)
-    cancel_btn.pack(side="left")
+    cancel_btn = ghost_button(
+        toolbar_right, "Стоп", callbacks.on_cancel, theme=theme, width=72
+    )
+    cancel_btn.pack(side="left", padx=(0, BUTTON_GAP))
     create_tooltip(cancel_btn, "Остановить текущий перевод", theme=theme)
 
-    settings_btn = icon_button(actions, "⚙", callbacks.on_open_settings, theme=theme, width=40)
+    settings_btn = icon_button(toolbar_right, "⚙", callbacks.on_open_settings, theme=theme, width=40)
     settings_btn.pack(side="left")
     create_tooltip(settings_btn, "Настройки (Ctrl+,)", theme=theme)
+
+    try:
+        toolbar.configure(height=TOOLBAR_HEIGHT)
+    except Exception:
+        pass
 
     panels = transparent_frame(main)
     panels.grid(row=1, column=0, sticky="nsew")
@@ -189,8 +212,9 @@ def build_main_window(
         cfg=cfg,
         theme=theme,
         font_scale=font_scale,
+        show_char_count=True,
     )
-    src_panel.grid(row=0, column=0, sticky="nsew")
+    src_panel.grid(row=0, column=0, sticky="nsew", padx=(0, ELEMENT_GAP // 2))
     try:
         src_panel.text.edit_modified(False)
     except Exception:
@@ -207,7 +231,7 @@ def build_main_window(
         theme=theme,
         font_scale=font_scale,
     )
-    translation_tabs.grid(row=0, column=1, sticky="nsew")
+    translation_tabs.grid(row=0, column=1, sticky="nsew", padx=(ELEMENT_GAP // 2, 0))
 
     translate_status_var = tk.StringVar(value="")
 
@@ -216,6 +240,8 @@ def build_main_window(
     status_inner = transparent_frame(status_card)
     status_inner.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
     status_inner.grid_columnconfigure(0, weight=1)
+    status_inner.grid_columnconfigure(1, weight=1)
+    status_inner.grid_columnconfigure(2, weight=0)
 
     status_var = tk.StringVar(value="Готов к работе")
     status_label = ctk.CTkLabel(
@@ -233,20 +259,29 @@ def build_main_window(
         textvariable=llm_indicator_var,
         font=scaled_ui_font(font_scale, 11),
         text_color=colors["text_muted"],
+        anchor="center",
     )
-    llm_indicator.grid(row=0, column=1, sticky="e")
+    llm_indicator.grid(row=0, column=1, sticky="ew")
+
+    footer_right = transparent_frame(status_inner)
+    footer_right.grid(row=0, column=2, sticky="e")
 
     hints_label = ctk.CTkLabel(
-        status_inner,
-        text="Ctrl+Enter · Ctrl+, · Ctrl+Shift+C",
-        font=scaled_ui_font(font_scale, 11),
+        footer_right,
+        text="⌨ Ctrl+Enter · Ctrl+,",
+        font=scaled_ui_font(font_scale, 10),
         text_color=colors["text_muted"],
     )
-    hints_label.grid(row=0, column=2, sticky="e")
+    hints_label.pack(side="left", padx=(0, BUTTON_GAP))
+    create_tooltip(
+        hints_label,
+        "Ctrl+Enter — перевод · Ctrl+, — настройки · Ctrl+Shift+C — захват текста",
+        theme=theme,
+    )
 
-    file_progress_frame = transparent_frame(status_inner)
-    file_progress_frame.grid(row=0, column=3, sticky="e")
-    file_progress_frame.grid_remove()
+    file_progress_frame = transparent_frame(footer_right)
+    file_progress_frame.pack(side="right")
+    file_progress_frame.pack_forget()
 
     file_progress = ctk.CTkProgressBar(
         file_progress_frame,
@@ -267,7 +302,7 @@ def build_main_window(
         text_color=colors["text_muted"],
         anchor="w",
     )
-    file_progress_label.grid(row=1, column=0, columnspan=4, sticky="w")
+    file_progress_label.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
     file_progress_label.grid_remove()
 
     return MainWindowView(

@@ -4,6 +4,31 @@ All notable changes to Argos Translate Streaming are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] — 2026-06-06
+
+### Added
+
+- UI design tokens: `UIStyle` / `STYLE` in `ui/layout_config.py` (structured flat v2.1)
+- Toolbar three-zone layout: file/title · languages · actions
+- «Ещё ▾» popup menu for streaming and scroll-sync toggles
+- Character count badge on source text panel
+- Language selector: direction arrow (→) and grid layout for centering
+- Settings dialog: sidebar navigation (168 px) with section intros; LLM advanced params collapsible
+- Settings dialog geometry persisted in `ui.settings_dialog` (`WindowState`)
+
+### Changed
+
+- Restored meaningful spacing (`Spacing.SM`, `SECTION_GAP`) across main window and settings
+- Editor `text_host` uses `radius_control=8` and 1px border; outer cards stay flat (`radius_card=0`)
+- Status footer: three columns (status · LLM indicator · hints/progress)
+- Primary action label: «Перевод» → «Перевести»
+- Settings: replaced `CTkTabview` with sidebar + content panels
+- `docs/UI_BASELINE.md` updated to v2.1
+
+### Fixed
+
+- Short-text language detection: script-based fallback when text < 20 chars (langdetect en↔nl, ru↔bg confusion)
+
 ## [2.0.0] — 2025-06-05
 
 ### Added

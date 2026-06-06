@@ -17,6 +17,7 @@ from argos_translator.ui.layout_config import (
     PANEL_BUTTON_ROW_HEIGHT,
     PANEL_HEADER_HEIGHT,
     PANEL_TAB_ROW_HEIGHT,
+    RADIUS_CONTROL,
     get_text_inset_kwargs,
 )
 from argos_translator.ui.themes import ThemeName, get_color_theme, get_status_color
@@ -171,7 +172,7 @@ class TranslationTabs(CardFrame):
             values=values,
             command=self._handle_segment_changed,
             height=PANEL_TAB_ROW_HEIGHT - 4,
-            corner_radius=0,
+            corner_radius=RADIUS_CONTROL,
             fg_color=colors["bg_secondary"],
             selected_color=colors["primary"],
             selected_hover_color=colors["primary_hover"],
@@ -189,7 +190,7 @@ class TranslationTabs(CardFrame):
             fg_color=colors["input"],
             text_color=colors["text_primary"],
             border_width=0,
-            corner_radius=0,
+            corner_radius=RADIUS_CONTROL,
             wrap="word",
             state="disabled",
         )

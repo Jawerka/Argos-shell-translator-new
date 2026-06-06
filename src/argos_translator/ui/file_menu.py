@@ -10,6 +10,32 @@ import customtkinter as ctk
 from argos_translator.ui.themes import ThemeName, apply_menu_theme, style_menu
 
 
+def create_toolbar_more_menu(
+    root: ctk.CTk,
+    *,
+    streaming_var: tk.BooleanVar,
+    scroll_sync_var: tk.BooleanVar,
+    on_stream_toggle: Callable[[], None],
+    on_scroll_sync_toggle: Callable[[], None],
+    theme: ThemeName = "dark",
+) -> tk.Menu:
+    """Меню «Ещё»: потоковый перевод и синхронизация прокрутки."""
+    apply_menu_theme(root, theme)
+    menu = tk.Menu(root, tearoff=0)
+    style_menu(menu, theme)
+    menu.add_checkbutton(
+        label="Потоковый перевод",
+        variable=streaming_var,
+        command=on_stream_toggle,
+    )
+    menu.add_checkbutton(
+        label="Синхронизация прокрутки",
+        variable=scroll_sync_var,
+        command=on_scroll_sync_toggle,
+    )
+    return menu
+
+
 def create_file_popup_menu(
     root: ctk.CTk,
     *,

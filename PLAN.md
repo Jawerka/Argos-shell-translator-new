@@ -1,26 +1,29 @@
 # PLAN.md — Ревизия проекта Argos Translate Streaming
 
 > Документ описывает полный план переработки проекта: архитектура, UI, LLM, трей, настройки, сборка EXE.
-> Версия плана: **1.4 (FINAL)** · Дата: 2025-06-05
+> Версия плана: **2.1 (UI Polish завершён)** · Дата: 2026-06-06 · Базовый коммит: `73e2670`
 
-### Статус выполнения — **PLAN ЗАВЕРШЁН**
+### Статус выполнения
 
 | Фаза | Статус | Итог |
 |------|--------|------|
 | **0** Подготовка | ✅ | pyproject, package layout, deps |
 | **1** Рефакторинг | ✅ | `app.py` координатор, services, ui |
 | **2** Тёмная тема | ✅ | `themes.py`, live preview в настройках |
-| **3** Трей и геометрия | ✅ | трей, DPI, debounce save, clamp |
+| **3** Трей и геометрия | ✅ | трей, DPI, fix winfo/geometry drift |
 | **4** Настройки | ✅ | settings v7, 7 вкладок |
 | **5** LLM | ✅ | both_adaptive, streaming, retry, fallback |
 | **6** Argos | ✅ | chunks, cache, coordinator, cancel |
 | **7** Документы | ✅ | document_io, DnD, encodings fixtures |
 | **8** EXE | ✅ | spec, hooks, frozen bootstrap, **сборка OK** (dev) |
-| **9** Тесты/CI | ✅ | **117** pytest, ruff, CI, release checklist |
+| **9** Тесты/CI | ✅ | pytest, ruff, CI, release checklist |
+| **10** UI Polish v2 | ✅ | §18.1–18.7; §18.8 backlog; §18.9 — ручная DPI QA |
 
 **Ручная QA (после релиза):** запуск `dist/ArgosTranslator/ArgosTranslator.exe` на чистой Windows **без Python** — см. §13.6.
 
 **Документация:** `README.md`, `BUILD_INSTRUCTIONS.md`, `CHANGELOG.md`, `docs/UI_BASELINE.md`.
+
+**Текущий UI (baseline v2.0, `73e2670`):** CustomTkinter, flat layout, две колонки 50/50, popup «Файл ▾», segmented Argos/LLM, 7 вкладок настроек.
 
 ---
 
@@ -43,6 +46,7 @@
 15. [Структура settings.json (целевая)](#15-структура-settingsjson-целевая)
 16. [Порядок выполнения и оценка](#16-порядок-выполнения-и-оценка)
 17. [Риски](#17-риски)
+18. [Фаза 10 — UI Polish v2](#18-фаза-10--ui-polish-v2)
 
 ---
 
@@ -122,27 +126,92 @@
 | B11 | Смешанный RU/EN интерфейс без системы i18n | UI | Низкая |
 | B12 | `log/app_debug.log` в git (шум в diff) | `.gitignore` | Низкая |
 
-### UX
+### UX (исходный аудит v1 — до рефакторинга)
+
+| # | Проблема | Критичность | Статус после `73e2670` |
+|---|----------|-------------|------------------------|
+| U1 | Нет тёмной темы | Высокая | ✅ `themes.py`, dark по умолчанию |
+| U2 | Нет окна настроек | Высокая | ✅ `SettingsDialog`, 7 вкладок |
+| U3 | Нет выбора движка перевода | Высокая | ✅ Argos / LLM, both_adaptive |
+| U4 | Закрытие окна = выход | Средняя | ✅ крестик → трей |
+| U5 | Нет индикации движка | Средняя | ✅ бейджи Argos/LLM, LLM indicator |
+| U6 | Геометрия «прыгает» (DPI) | **Высокая** | ✅ `geometry_units`, capture через `geometry()` |
+| U7 | Нет перевода файлов | Высокая | ✅ document_io, DnD |
+
+### 3.1. Сводка UI-аудитов (июнь 2026)
+
+Проанализированы **три независимых аудита** UI после коммита `73e2670`. Ниже — что уже есть в коде, что отклонено и что берём в фазу 10.
+
+#### Уже реализовано (не дублировать в плане)
+
+| Область | Реализация | Файлы |
+|---------|------------|-------|
+| CustomTkinter, модульный UI | Пакет `src/argos_translator/ui/` | `main_window.py`, `widgets.py` |
+| Две колонки редактора 50/50 | `uniform="editor_col"`, общая grid-структура панелей | `main_window.py`, `text_panel.py`, `translation_tabs.py` |
+| Копировать / Очистить / Вставить | Кнопки в панелях | `text_panel.py`, `translation_tabs.py` |
+| Горячие клавиши | Ctrl+Enter, Ctrl+,, Ctrl+Shift+C | `app.py`, подсказки в status |
+| Поток + синхр. прокрутка | Checkbox в toolbar + tooltips | `main_window.py` |
+| Статус + прогресс файла | Status card, progress bar | `main_window.py` |
+| Меню файла без menubar | Popup «Файл ▾» | `file_menu.py` |
+| Масштаб шрифта | Slider в настройках | `settings_dialog.py`, `font_scale.py` |
+| Flat layout (осознанный выбор) | `CORNER_RADIUS=0`, spacing=0 | `layout_config.py` |
+
+#### Аудит A — «Визуальная система и иерархия» (актуален)
+
+| # | Предложение | Решение для фазы 10 | Приоритет |
+|---|-------------|---------------------|-----------|
+| A1 | Дизайн-токены (`UIStyle`, radii, heights) | ✅ Принять — `ui/style.py` или расширить `layout_config.py` | P0 |
+| A2 | Шапка: лево / центр / право (меню · языки · действия) | ✅ Принять — рефактор `build_main_window` toolbar | P0 |
+| A3 | Панели как «card editor» (рамка, заголовок, статус) | ⚠️ Частично — мягкие рамки и отступы **без** отказа от flat; radius 8–12, не 16+ | P1 |
+| A4 | Упростить кнопки toolbar (1 primary + overflow) | ✅ Принять — «Файл», чекбоксы → меню «Ещё ▾» | P1 |
+| A5 | Footer: статус · движок · прогресс (3 колонки) | ✅ Принять — grid footer вместо «случайного» текста | P1 |
+| A6 | Настройки: sidebar или секции с описаниями | ✅ Принять — sidebar nav + content pane | P2 |
+| A7 | Единые отступы, без magic numbers | ✅ Принять — вернуть `Spacing.*` > 0 точечно | P0 |
+
+#### Аудит B — «Простой CTk-переводчик» (устарел)
+
+| # | Предложение | Решение | Приоритет |
+|---|-------------|---------|-----------|
+| B1 | Вертикальный макет: ввод сверху, вывод снизу | ❌ Отклонено — продукт уже двухколоночный streaming-редактор | — |
+| B2 | Правая панель «История переводов» | ⏸ Отложено — отдельная фича, не UI-polish | P3 |
+| B3 | Озвучка (pyttsx3) | ⏸ Backlog | P3 |
+| B4 | Блокировка кнопки «Перевести» | ✅ Уже частично через coordinator; усилить disabled state на primary | P2 |
+
+#### Аудит C — «Современный polish» (выборочно)
+
+| # | Предложение | Решение | Приоритет |
+|---|-------------|---------|-----------|
+| C1 | Тени / pseudo-elevation карточек | ❌ Не в v2.1 — конфликтует с flat; опционально в v2.2 «elevated theme» | P3 |
+| C2 | Счётчик символов в заголовке панели | ✅ Принять | P1 |
+| C3 | Акцентная полоска у заголовка | ⚠️ Опционально, если не перегружает flat | P2 |
+| C4 | Смена палитры на indigo `#6366f1` | ❌ Отклонено — сохраняем UI-for-ytdlp (`#16a6ff`) | — |
+| C5 | Ripple / fade анимации | ❌ Отложено — CTk/Tk ограничения, низкий ROI | P3 |
+| C6 | Круглая кнопка swap языков | ⚠️ Микро-улучшение `language_selector.py` | P2 |
+
+#### Принцип фазы 10
+
+> **«Structured flat»** — сохранить плоский минимализм, добавить **иерархию через сетку, отступы и типографику**, а не через тени и скругления везде.
+
+#### Новые UX-задачи (post-`73e2670`)
 
 | # | Проблема | Критичность |
 |---|----------|-------------|
-| U1 | Нет тёмной темы | Высокая (запрос) |
-| U2 | Нет окна настроек | Высокая (запрос) |
-| U3 | Нет выбора движка перевода | Высокая (запрос) |
-| U4 | Закрытие окна = выход (нет опции «сворачивать в трей») | Средняя |
-| U5 | Нет индикации, какой движок сейчас переводит | Средняя |
-| U6 | Геометрия окна сохраняется как строка `geometry` без учёта DPI/мониторов — окно «прыгает» | **Высокая** |
-| U7 | Нет перевода файлов | Высокая (запрос) |
+| U8 | Toolbar перегружен короткими элементами в одну строку | Средняя | ✅ 3-zone + «Ещё ▾» |
+| U9 | `Spacing`/`CARD_PAD*` = 0 — UI «склеен» | Средняя | ✅ tokens v2.1 |
+| U10 | Настройки — плотный tabview, плохая сканируемость | Средняя | 🔄 SECTION_GAP; sidebar pending |
+| U11 | Статусная строка не структурирована (left/center/right) | Низкая | ✅ footer grid |
+| U12 | `docs/UI_BASELINE.md` не отражает flat v2.1 | Низкая | ✅ v2.1 |
 
 ### Геометрия окна (текущие недостатки)
 
 | # | Проблема | Последствие |
 |---|----------|-------------|
-| G1 | Сохраняется только `root.geometry()` как строка | При смене DPI координаты невалидны |
-| G2 | Нет DPI awareness при старте процесса | Tkinter масштабирует виджеты непредсказуемо |
-| G3 | Нет clamp к видимой области экрана | Окно может оказаться за пределами монитора |
-| G4 | Не сохраняется состояние maximized | После перезапуска всегда normal |
-| G5 | Центрирование при первом запуске перезаписывает загруженную геометрию | `_setup_window()` ставит окно в центр после load |
+| G1 | Сохраняется только `root.geometry()` как строка | ✅ structured `WindowState` + `geometry_units` |
+| G2 | Нет DPI awareness при старте процесса | ✅ `bootstrap/dpi.py` |
+| G3 | Нет clamp к видимой области экрана | ✅ `clamp_to_visible_area` |
+| G4 | Не сохраняется состояние maximized | ✅ `state: zoomed` |
+| G5 | Центрирование перезаписывает геометрию | ✅ restore после `deiconify` |
+| G6 | Capture через `winfo_*` вместо `geometry()` — рост окна на каждом запуске | ✅ fix в `73e2670` |
 
 ---
 
@@ -1442,8 +1511,9 @@ echo Копируйте argos_models в dist\ArgosTranslator\argos_models\
 | 7 | Перевод документов | 1.5–2 дн | 5, 6 |
 | 8 | EXE сборка | 1.5–2 дн | 1, 5 |
 | 9 | Тесты + docs | 1–2 дн | все |
+| 10 | UI Polish v2 | 2–3 дн | 9, `73e2670` |
 
-**Итого:** ~14–18 рабочих дней.
+**Итого (фазы 0–9):** ~14–18 рабочих дней. **Фаза 10:** +2–3 дня.
 
 ### Рекомендуемый порядок PR
 
@@ -1456,6 +1526,107 @@ echo Копируйте argos_models в dist\ArgosTranslator\argos_models\
 7. `feat/document-translation` — фаза 7
 8. `build/pyinstaller` — фаза 8
 9. `chore/tests-docs` — фаза 9
+10. `feat/ui-polish-v2` — фаза 10 (см. §18)
+
+---
+
+## 18. Фаза 10 — UI Polish v2
+
+**Цель:** заметно улучшить восприятие интерфейса **без** смены архитектуры и без возврата к монолиту. Опирается на аудиты A/B/C (§3.1) и baseline `docs/UI_BASELINE.md`.
+
+**Ограничения:**
+
+- Не менять логику перевода, coordinator, settings schema (кроме опциональных UI-only полей).
+- Сохранить палитру UI-for-ytdlp (`#16a6ff` primary).
+- Не вводить тяжёлые анимации и fake-shadow фреймы в v2.1.
+- Каждый подэтап — отдельный коммит/PR, визуально проверяемый на Windows 125% DPI.
+
+### 18.1. P0 — Design tokens и отступы (≈0.5 дн)
+
+**Файлы:** `ui/layout_config.py`, `ui/widgets.py`.
+
+- [x] Ввести `UIStyle` / `STYLE`: `radius_control`, `radius_card`, `toolbar_h`, `section_gap`.
+- [x] Заменить magic numbers в `main_window.py`, `text_panel.py`, `settings_dialog.py` на токены.
+- [x] Вернуть осмысленные отступы: `WINDOW_PADX/Y`, `CARD_PADX/Y`, `ELEMENT_GAP` > 0.
+- [x] Зафиксировать в `docs/UI_BASELINE.md` версию **v2.1 structured flat**.
+
+**Критерий:** grep по `padx=\d` / `pady=\d` в `ui/` — только константы из `layout_config`.
+
+### 18.2. P0 — Toolbar: три зоны (≈0.5 дн)
+
+**Файл:** `ui/main_window.py`.
+
+- [x] Grid header: column 0 — меню + title; column 1 (weight=1) — `CompactLanguageSelector`; column 2 — actions.
+- [x] Длинные подписи — в tooltip; в toolbar короткие или иконки.
+
+**Критерий:** языковой селектор визуально в центре; actions не «прилипают» к combo.
+
+### 18.3. P1 — Card editors (панели текста) (≈0.5 дн)
+
+**Файлы:** `ui/text_panel.py`, `ui/translation_tabs.py`.
+
+- [x] `text_host`: `border_width=1`, `corner_radius=8` (токен), единый для обеих колонок.
+- [x] Заголовок: title + счётчик символов (исходник).
+- [x] Нижняя строка кнопок — одинаковая высота `PANEL_BUTTON_ROW_HEIGHT`.
+
+**Критерий:** поля ввода по-прежнему 50/50 и одной высоты (regression test layout).
+
+### 18.4. P1 — Toolbar actions simplification (≈0.25 дн)
+
+**Файлы:** `ui/main_window.py`, `ui/file_menu.py`.
+
+- [x] Primary: «Перевести»; secondary: «Стоп»; icon: «⚙».
+- [x] «Поток» / «Синхр.» → меню «Ещё ▾`.
+- [x] Hotkeys и callbacks без изменений.
+
+### 18.5. P1 — Status footer (≈0.25 дн)
+
+**Файл:** `ui/main_window.py`.
+
+- [x] Grid 3 колонки: `status_var` (w) · `llm_indicator` (center) · hints + progress (e).
+- [x] Progress bar visible только при переводе файла.
+- [x] Hints сокращены; полный список — tooltip.
+
+### 18.6. P2 — Settings dialog UX (≈1 дн)
+
+**Файл:** `ui/settings_dialog.py`.
+
+- [x] Заменить верхний tabview на **sidebar + content** (168px nav).
+- [x] К каждой секции — `muted_label` с одной строкой описания.
+- [x] LLM tab: collapsible «Дополнительно» для temperature / prompt.
+- [x] Размер окна: сохранение geometry через `WindowState` в `ui.settings_dialog`.
+
+**Критерий:** ✅ LLM-секция с collapsible «Дополнительно»; tabview удалён (нет duplicate `fg_color`).
+
+### 18.7. P2 — Language selector polish (≈0.25 дн)
+
+**Файл:** `ui/language_selector.py`.
+
+- [x] Визуальная стрелка направления (→) между combo.
+- [x] Swap — кнопка 36×36, tooltip «Поменять языки местами».
+
+### 18.8. P3 — Backlog (не блокирует релиз)
+
+- [ ] История переводов (sidebar / drawer) — отдельная фича.
+- [ ] TTS / озвучка.
+- [ ] Elevated theme variant (тени, radius 16).
+- [ ] `ui/animations.py` — только если появится реальная потребность.
+
+### 18.9. Тесты и QA фазы 10
+
+- [x] Smoke: `tests/test_translation_display.py`, `tests/test_llm_enabled.py`.
+- [ ] Ручная матрица: Windows **100% / 125% / 150%** DPI — размер окна стабилен 3 перезапуска.
+- [x] `docs/UI_BASELINE.md` обновлён (sidebar настроек).
+
+### 18.10. Порядок работ (максимальный эффект / минимум риска)
+
+1. **Tokens + spacing** (18.1)
+2. **Toolbar 3-zone** (18.2)
+3. **Card editors + char count** (18.3)
+4. **Footer** (18.5)
+5. **Actions simplification** (18.4)
+6. **Settings sidebar** (18.6)
+7. **Language selector** (18.7)
 
 ---
 
@@ -1503,11 +1674,25 @@ echo Копируйте argos_models в dist\ArgosTranslator\argos_models\
 - [x] EXE собирается (`scripts/build.bat`); en↔ru из bundle — код готов
 - [x] Автоопределение кодировки файлов; pytest encodings зелёный
 - [x] README актуален
-- [x] pytest проходит (**117**)
+- [x] pytest проходит
 - [x] Нет DEBUG-print в `src/` (`test_release_checklist.py`)
+
+**Фаза 10 (UI Polish v2):** см. [§18.10](#1810-порядок-работ-максимальный-эффект--минимум-риска).
 
 **Остаётся вручную:** EXE на чистой Windows без Python (§13.6).
 
 ---
 
-*Документ завершён (v1.4). Все фазы реализованы; ручная QA EXE — §13.6.*
+## Приложение C — Чеклист UI Polish v2
+
+- [x] Design tokens, spacing > 0
+- [x] Toolbar: left / center / right
+- [x] Editor cards: border + radius 8, char count
+- [x] Footer: status · engine · progress
+- [x] Settings: sidebar + content (18.6)
+- [x] `UI_BASELINE.md` обновлён до v2.1
+- [ ] DPI 100/125/150% — стабильная геометрия (ручная QA)
+
+---
+
+*Документ v2.1: фазы 0–10 завершены (код UI Polish §18; commit `73e2670` + последующие правки); §18.8–18.9 backlog / ручная QA.*

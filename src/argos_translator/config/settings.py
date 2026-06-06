@@ -89,6 +89,7 @@ class AppSettings:
     behavior: BehaviorSettings = field(default_factory=BehaviorSettings)
     active_translation_tab: str = "argos"
     geometry_legacy: Optional[str] = None
+    settings_dialog_state: Optional[WindowState] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -128,6 +129,9 @@ class AppSettings:
             },
             "ui": {
                 "active_translation_tab": self.active_translation_tab,
+                "settings_dialog": (
+                    self.settings_dialog_state.to_dict() if self.settings_dialog_state else None
+                ),
             },
             "files": {
                 "output_encoding": self.files.output_encoding,
@@ -234,6 +238,15 @@ class AppSettings:
             translation_cache_size=cache_size,
         )
 
+        sd_data = ui.get("settings_dialog")
+        if isinstance(sd_data, dict) and sd_data:
+            settings_dialog_state = WindowState.from_dict(
+                sd_data,
+                WindowState(width=720, height=560),
+            )
+        else:
+            settings_dialog_state = None
+
         return cls(
             version=int(data.get("version", CURRENT_SETTINGS_VERSION)),
             window_state=window_state,
@@ -253,6 +266,7 @@ class AppSettings:
             behavior=behavior,
             active_translation_tab=str(ui.get("active_translation_tab", "argos")),
             geometry_legacy=window.get("geometry"),
+            settings_dialog_state=settings_dialog_state,
         )
 
 

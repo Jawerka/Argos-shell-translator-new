@@ -64,6 +64,30 @@ def test_to_dict_contains_sections() -> None:
     assert "behavior" in data
     assert data["translation"]["default_engine"] == "both_adaptive"
     assert data["behavior"]["close_action"] == "tray"
+    assert "settings_dialog" in data["ui"]
+
+
+def test_settings_dialog_state_roundtrip(tmp_path: Path) -> None:
+    from argos_translator.ui.window_state import WindowState
+
+    cfg_path = tmp_path / "settings.json"
+    original = AppSettings()
+    original.settings_dialog_state = WindowState(
+        x=120,
+        y=80,
+        width=720,
+        height=560,
+        geometry_units="tk_geometry",
+    )
+
+    save_settings(original, cfg_path)
+    loaded = load_settings(UIConfig(), path=cfg_path)
+
+    assert loaded.settings_dialog_state is not None
+    assert loaded.settings_dialog_state.width == 720
+    assert loaded.settings_dialog_state.height == 560
+    assert loaded.settings_dialog_state.x == 120
+    assert loaded.settings_dialog_state.geometry_units == "tk_geometry"
 
 
 def test_migrate_v6_adds_behavior() -> None:
