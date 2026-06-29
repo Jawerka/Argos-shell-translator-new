@@ -79,6 +79,7 @@ class AppSettings:
     theme: str = "dark"
     opacity: float = 1.0
     font_scale: float = 1.0
+    editor_layout: str = "split"
     streaming: bool = True
     scroll_sync: bool = True
     debounce_ms: int = 700
@@ -102,6 +103,7 @@ class AppSettings:
                 "opacity": self.opacity,
                 "theme": self.theme,
                 "font_scale": self.font_scale,
+                "editor_layout": self.editor_layout,
                 "geometry_legacy": self.geometry_legacy,
             },
             "translation": {
@@ -262,6 +264,7 @@ class AppSettings:
             theme=str(window.get("theme", "dark")),
             opacity=float(window.get("opacity", 1.0)),
             font_scale=float(window.get("font_scale", 1.0)),
+            editor_layout=str(window.get("editor_layout", "split")),
             streaming=bool(streaming),
             scroll_sync=bool(translation.get("scroll_sync", window.get("scroll_sync", True))),
             debounce_ms=int(translation.get("debounce_ms", 700)),

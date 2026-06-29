@@ -28,7 +28,7 @@ from argos_translator.config.settings import AppSettings
 from argos_translator.engines.llm_engine import fetch_models
 from argos_translator.logging_setup import LoggingConfig
 from argos_translator.services.model_manager import ModelManager
-from argos_translator.ui.font_scale import FONT_SCALE_MAX, FONT_SCALE_MIN, clamp_font_scale
+from argos_translator.ui.font_scale import FONT_SCALE_MAX, FONT_SCALE_MIN, clamp_font_scale, ui_font
 from argos_translator.ui.layout_config import (
     CARD_PADX,
     INPUT_HEIGHT,
@@ -264,7 +264,7 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             parent,
             text=label,
-            font=ctk.CTkFont(size=12),
+            font=ui_font(),
             text_color=self._colors["text_primary"],
             anchor="w",
         ).grid(row=row, column=0, sticky="w", pady=6, padx=(0, 12))
@@ -332,7 +332,7 @@ class SettingsDialog(ctk.CTkToplevel):
             width=48,
         )
         self.font_scale_label.pack(side="right")
-        self._form_row(frame, "Размер текста:", font_row, row)
+        self._form_row(frame, "Размер текста в полях:", font_row, row)
         row += 1
 
         self.var_opacity = tk.DoubleVar(value=self.settings.opacity)
@@ -550,7 +550,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self._packages_dir_label = ctk.CTkLabel(
             frame,
             text=f"Папка моделей:\n{mgr.packages_dir}",
-            font=ctk.CTkFont(size=12),
+            font=ui_font(),
             text_color=self._colors["text_primary"],
             anchor="w",
             justify="left",
@@ -575,7 +575,7 @@ class SettingsDialog(ctk.CTkToplevel):
         link = ctk.CTkLabel(
             frame,
             text="Дополнительные модели: argosopentech.com/argospm/",
-            font=ctk.CTkFont(size=11),
+            font=ui_font(),
             text_color=self._colors["text_muted"],
             cursor="hand2",
         )
@@ -605,7 +605,7 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             frame,
             text=f"Argos Translate Streaming v{__version__}",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ui_font(weight="bold"),
             text_color=self._colors["text_primary"],
             anchor="w",
         ).pack(anchor="w", pady=(0, 8))
@@ -664,7 +664,7 @@ class SettingsDialog(ctk.CTkToplevel):
         lf_row += 1
 
         self.cloud_warning = ctk.CTkLabel(
-            lf, text="", font=ctk.CTkFont(size=11), text_color=self._colors["text_warning"], anchor="w",
+            lf, text="", font=ui_font(), text_color=self._colors["text_warning"], anchor="w",
         )
         self.cloud_warning.grid(row=lf_row, column=0, columnspan=2, sticky="w")
         lf_row += 1
@@ -705,7 +705,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self._form_row(self.llm_advanced_frame, "Temperature:", temp_entry, 0)
 
         ctk.CTkLabel(
-            self.llm_advanced_frame, text="Системный промпт:", font=ctk.CTkFont(size=12),
+            self.llm_advanced_frame, text="Системный промпт:", font=ui_font(),
             text_color=self._colors["text_primary"], anchor="nw",
         ).grid(row=1, column=0, sticky="nw", pady=4)
 
@@ -723,7 +723,7 @@ class SettingsDialog(ctk.CTkToplevel):
         ).grid(row=2, column=1, sticky="w", pady=4)
 
         ctk.CTkLabel(
-            self.llm_advanced_frame, text="Файлы (LLM):", font=ctk.CTkFont(size=12, weight="bold"),
+            self.llm_advanced_frame, text="Файлы (LLM):", font=ui_font(weight="bold"),
             text_color=self._colors["text_primary"], anchor="w",
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 4))
 

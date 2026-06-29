@@ -10,7 +10,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 import customtkinter as ctk
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.font_scale import scaled_text_font, scaled_title_font
+from argos_translator.ui.editor_layout import EditorLayout
+from argos_translator.ui.font_scale import scaled_text_font, ui_font
 from argos_translator.ui.layout_config import (
     CARD_PADX,
     CARD_PADY,
@@ -21,7 +22,8 @@ from argos_translator.ui.layout_config import (
     get_text_inset_kwargs,
 )
 from argos_translator.ui.themes import ThemeName, get_color_theme, get_status_color
-from argos_translator.ui.widgets import CardFrame, ghost_button, panel_title_label, transparent_frame
+from argos_translator.ui.tooltip import create_tooltip
+from argos_translator.ui.widgets import CardFrame, ghost_button, transparent_frame
 from argos_translator.utils.imports import (
     ImportStatus,
     PYPERCLIP_MODULE,
@@ -29,6 +31,8 @@ from argos_translator.utils.imports import (
 )
 
 logger = logging.getLogger("ArgosStreaming")
+
+_STREAM_TAIL_THRESHOLD = 0.99
 
 _TAB_KEYS = {"argos": "Argos", "llm": "LLM"}
 _STATUS_DISPLAY = {
@@ -51,6 +55,8 @@ class TranslationTabs(CardFrame):
         active_tab: str = "argos",
         extra_buttons: Optional[List[Tuple[str, Callable[..., object]]]] = None,
         on_tab_changed: Optional[Callable[[str], None]] = None,
+        on_llm_stream_append: Optional[Callable[[], None]] = None,
+        on_editor_layout_toggle: Optional[Callable[[], None]] = None,
         theme: ThemeName = "dark",
         font_scale: float = 1.0,
         **kwargs,
@@ -63,6 +69,10 @@ class TranslationTabs(CardFrame):
         self._llm_enabled = llm_enabled
         self._active_tab = active_tab if active_tab in ("argos", "llm") else "argos"
         self._on_tab_changed = on_tab_changed
+        self._on_llm_stream_append = on_llm_stream_append
+        self._on_editor_layout_toggle = on_editor_layout_toggle
+        self._editor_layout: EditorLayout = "split"
+        self._llm_streaming = False
         self._tab_status: Dict[str, Optional[str]] = {"argos": None, "llm": None}
         self.extra_buttons = extra_buttons or []
         self._tab_name_map: Dict[str, str] = {}
@@ -80,21 +90,28 @@ class TranslationTabs(CardFrame):
         header = ctk.CTkFrame(inner, height=PANEL_HEADER_HEIGHT, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
-        self._title_label = panel_title_label(
-            header,
-            "Перевод",
-            theme=self.theme,
-            font=scaled_title_font(font_scale),
-        )
-        self._title_label.pack(side="left", anchor="w")
 
-        badges = transparent_frame(header)
+        header_controls = transparent_frame(header)
+        header_controls.pack(side="right")
+
+        if self._on_editor_layout_toggle is not None:
+            self._layout_btn = ghost_button(
+                header_controls,
+                "⤢",
+                self._on_editor_layout_toggle,
+                theme=self.theme,
+                width=32,
+            )
+            self._layout_btn.pack(side="left", padx=(0, 6))
+            create_tooltip(self._layout_btn, "На всю ширину", theme=self.theme)
+
+        badges = transparent_frame(header_controls)
         badges.pack(side="right")
         for engine in ("argos", "llm"):
             badge = ctk.CTkLabel(
                 badges,
                 text="",
-                font=scaled_text_font(font_scale),
+                font=ui_font(),
                 text_color=self._colors["text_muted"],
             )
             badge.pack(side="left")
@@ -154,13 +171,24 @@ class TranslationTabs(CardFrame):
     def tabs(self) -> list:
         return list(self._tab_name_map.keys())
 
+    def set_editor_layout_state(self, mode: EditorLayout) -> None:
+        self._editor_layout = mode
+        if not hasattr(self, "_layout_btn"):
+            return
+        expanded = mode == "translation"
+        self._layout_btn.configure(text="⤡" if expanded else "⤢")
+        create_tooltip(
+            self._layout_btn,
+            "Две панели" if expanded else "На всю ширину",
+            theme=self.theme,
+        )
+
     def apply_font_scale(self, scale: float) -> None:
         self._font_scale = scale
         font = scaled_text_font(scale)
         self._argos_box.configure(font=font)
         if self._llm_box is not None:
             self._llm_box.configure(font=font)
-        self._title_label.configure(font=scaled_title_font(scale))
 
     def _register_tab(self, engine: str) -> None:
         self._tab_name_map[engine] = _TAB_KEYS[engine]
@@ -189,7 +217,7 @@ class TranslationTabs(CardFrame):
             parent,
             font=scaled_text_font(self._font_scale),
             fg_color=colors["input"],
-            text_color=colors["text_primary"],
+            text_color=colors["text_editor"],
             border_width=0,
             corner_radius=RADIUS_CONTROL,
             wrap="word",
@@ -280,6 +308,39 @@ class TranslationTabs(CardFrame):
     def text(self) -> tk.Text:
         return self.get_active_text_widget()
 
+    @staticmethod
+    def _is_view_at_bottom(tk_text: tk.Text, threshold: float = _STREAM_TAIL_THRESHOLD) -> bool:
+        try:
+            return float(tk_text.yview()[1]) >= threshold
+        except Exception:
+            return False
+
+    def _append_box_stream_delta(self, box: ctk.CTkTextbox, text: str) -> bool:
+        """Дописать дельту в конец без полной перезаписи. Возвращает True, если текст изменился."""
+        tk_text = box._textbox
+        try:
+            current = box.get("1.0", "end-1c")
+            if text == current:
+                return False
+            at_bottom = self._is_view_at_bottom(tk_text)
+            if not text.startswith(current):
+                box.delete("1.0", "end")
+                if text:
+                    box.insert("1.0", text)
+                if at_bottom:
+                    tk_text.see("end")
+                return True
+            delta = text[len(current) :]
+            if not delta:
+                return False
+            tk_text.insert("end", delta)
+            if at_bottom:
+                tk_text.see("end")
+            return True
+        except Exception as exc:
+            logger.warning("stream append failed: %s", exc)
+            return False
+
     def _set_box_text(self, box: ctk.CTkTextbox, text: str) -> None:
         """Обновление через CTkTextbox API (не напрямую _textbox)."""
         tk_text = box._textbox
@@ -311,9 +372,16 @@ class TranslationTabs(CardFrame):
             logger.warning("set translation text failed: %s", exc)
 
     def _get_box_text(self, box: ctk.CTkTextbox) -> str:
-        box.configure(state="normal")
+        tk_text = box._textbox
+        try:
+            was_disabled = str(tk_text.cget("state")) == "disabled"
+        except Exception:
+            was_disabled = True
+        if was_disabled:
+            box.configure(state="normal")
         text = box.get("1.0", "end-1c").strip()
-        box.configure(state="disabled")
+        if was_disabled:
+            box.configure(state="disabled")
         return text
 
     def set_argos_text(self, text: str) -> None:
@@ -321,7 +389,48 @@ class TranslationTabs(CardFrame):
 
     def set_llm_text(self, text: str) -> None:
         if self._llm_box is not None:
-            self._set_box_text(self._llm_box, text)
+            if self._llm_streaming:
+                self.end_llm_stream(final_text=text)
+            else:
+                self._set_box_text(self._llm_box, text)
+
+    def begin_llm_stream(self) -> None:
+        if self._llm_box is None:
+            return
+        try:
+            self._llm_streaming = True
+            self._llm_box.configure(state="normal")
+            self._llm_box.delete("1.0", "end")
+        except Exception as exc:
+            logger.warning("begin LLM stream failed: %s", exc)
+            self._llm_streaming = False
+
+    def append_llm_stream_text(self, text: str) -> None:
+        if self._llm_box is None:
+            return
+        if not self._llm_streaming:
+            self.set_llm_text(text)
+            return
+        if self._append_box_stream_delta(self._llm_box, text) and self._on_llm_stream_append:
+            self._on_llm_stream_append()
+
+    def end_llm_stream(self, final_text: Optional[str] = None) -> None:
+        if self._llm_box is None:
+            self._llm_streaming = False
+            return
+        try:
+            if final_text is not None:
+                current = self._llm_box.get("1.0", "end-1c")
+                if final_text != current:
+                    if self._llm_streaming:
+                        self._append_box_stream_delta(self._llm_box, final_text)
+                    else:
+                        self._set_box_text(self._llm_box, final_text)
+            self._llm_box.configure(state="disabled")
+        except Exception as exc:
+            logger.warning("end LLM stream failed: %s", exc)
+        finally:
+            self._llm_streaming = False
 
     def get_active_text(self) -> str:
         box = self._argos_box if self._active_tab == "argos" else self._llm_box
@@ -342,7 +451,10 @@ class TranslationTabs(CardFrame):
 
     def clear_llm(self) -> None:
         if self._llm_box is not None:
-            self._set_box_text(self._llm_box, "")
+            if self._llm_streaming:
+                self.end_llm_stream(final_text="")
+            else:
+                self._set_box_text(self._llm_box, "")
 
     def clear_active(self) -> None:
         if self._active_tab == "argos":

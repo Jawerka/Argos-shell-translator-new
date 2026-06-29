@@ -10,6 +10,7 @@ import tkinter as tk
 
 from argos_translator.config.constants import UIConfig
 from argos_translator.config.settings import AppSettings
+from argos_translator.ui.editor_layout import EditorLayout, apply_editor_layout, normalize_editor_layout
 from argos_translator.ui.file_menu import (
     clear_window_menubar,
     create_file_popup_menu,
@@ -19,14 +20,15 @@ from argos_translator.ui.file_menu import (
     show_popup_menu,
 )
 from argos_translator.ui.language_selector import CompactLanguageSelector
-from argos_translator.ui.font_scale import scaled_ui_font
+from argos_translator.ui.font_scale import ui_font
 from argos_translator.ui.layout_config import (
     BUTTON_GAP,
     CARD_PADX,
     CARD_PADY,
     ELEMENT_GAP,
-    PROGRESS_HEIGHT,
-    PROGRESS_WIDTH,
+    FOOTER_FONT_SIZE,
+    FOOTER_PADX,
+    FOOTER_PADY,
     TOOLBAR_HEIGHT,
     WINDOW_PADX,
     WINDOW_PADY,
@@ -58,11 +60,14 @@ class MainWindowCallbacks:
     on_copy_and_hide: Callable[[], None]
     on_tab_changed: Callable[[str], None]
     on_src_modified: Callable[[Optional[tk.Event]], None]
+    on_llm_stream_append: Callable[[], None]
+    on_editor_layout_changed: Callable[[str], None]
 
 
 @dataclass
 class MainWindowView:
     main_frame: ctk.CTkFrame
+    panels: ctk.CTkFrame
     lang_widget: CompactLanguageSelector
     src_panel: TextPanel
     translation_tabs: TranslationTabs
@@ -72,25 +77,27 @@ class MainWindowView:
     status_var: tk.StringVar
     llm_indicator_var: tk.StringVar
     llm_indicator: ctk.CTkLabel
-    file_progress: ctk.CTkProgressBar
     file_progress_var: tk.StringVar
     file_progress_label: ctk.CTkLabel
     file_progress_frame: ctk.CTkFrame
     status_label: ctk.CTkLabel
-    hints_label: ctk.CTkLabel
 
 
-def apply_ui_font_scale(view: MainWindowView, scale: float) -> None:
+def apply_editor_font_scale(view: MainWindowView, scale: float) -> None:
     view.src_panel.apply_font_scale(scale)
     view.translation_tabs.apply_font_scale(scale)
-    small = scaled_ui_font(scale, 11)
-    for widget in (
-        view.status_label,
-        view.llm_indicator,
-        view.hints_label,
-        view.file_progress_label,
-    ):
-        widget.configure(font=small)
+
+
+def set_editor_layout(view: MainWindowView, mode: EditorLayout) -> None:
+    apply_editor_layout(
+        view.panels,
+        view.src_panel,
+        view.translation_tabs,
+        mode,
+        gap=ELEMENT_GAP,
+    )
+    view.src_panel.set_editor_layout_state(mode)
+    view.translation_tabs.set_editor_layout_state(mode)
 
 
 def build_main_window(
@@ -103,6 +110,7 @@ def build_main_window(
     theme: ThemeName = settings.theme if settings.theme in ("dark", "light") else "dark"
     colors = get_color_theme(theme)
     font_scale = settings.font_scale
+    editor_layout = normalize_editor_layout(settings.editor_layout)
 
     clear_window_menubar(root)
 
@@ -203,12 +211,13 @@ def build_main_window(
 
     src_panel = TextPanel(
         panels,
-        "Исходный текст",
+        "",
         editable=True,
         cfg=cfg,
         theme=theme,
         font_scale=font_scale,
         show_char_count=True,
+        on_editor_layout_toggle=lambda: callbacks.on_editor_layout_changed("source"),
     )
     src_panel.grid(row=0, column=0, sticky="nsew", padx=(0, ELEMENT_GAP // 2))
     try:
@@ -224,6 +233,8 @@ def build_main_window(
         active_tab=settings.active_translation_tab,
         extra_buttons=[("Копир. и скрыть", callbacks.on_copy_and_hide)],
         on_tab_changed=callbacks.on_tab_changed,
+        on_llm_stream_append=callbacks.on_llm_stream_append,
+        on_editor_layout_toggle=lambda: callbacks.on_editor_layout_changed("translation"),
         theme=theme,
         font_scale=font_scale,
     )
@@ -231,78 +242,53 @@ def build_main_window(
 
     translate_status_var = tk.StringVar(value="")
 
-    status_card = card_frame(main, theme=theme)
-    status_card.grid(row=2, column=0, sticky="ew", pady=(ELEMENT_GAP, 0))
-    status_inner = transparent_frame(status_card)
-    status_inner.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
-    status_inner.grid_columnconfigure(0, weight=1)
-    status_inner.grid_columnconfigure(1, weight=1)
-    status_inner.grid_columnconfigure(2, weight=0)
+    footer = transparent_frame(main)
+    footer.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+    footer_inner = transparent_frame(footer)
+    footer_inner.pack(fill="x", padx=FOOTER_PADX, pady=FOOTER_PADY)
 
     status_var = tk.StringVar(value="Готов к работе")
+    footer_font = ui_font(FOOTER_FONT_SIZE)
     status_label = ctk.CTkLabel(
-        status_inner,
+        footer_inner,
         textvariable=status_var,
-        font=scaled_ui_font(font_scale, 11),
-        text_color=colors["text_primary"],
+        font=footer_font,
+        text_color=colors["text_muted"],
         anchor="w",
     )
-    status_label.grid(row=0, column=0, sticky="w")
-
-    llm_indicator_var = tk.StringVar(value="")
-    llm_indicator = ctk.CTkLabel(
-        status_inner,
-        textvariable=llm_indicator_var,
-        font=scaled_ui_font(font_scale, 11),
-        text_color=colors["text_muted"],
-        anchor="center",
-    )
-    llm_indicator.grid(row=0, column=1, sticky="ew")
-
-    footer_right = transparent_frame(status_inner)
-    footer_right.grid(row=0, column=2, sticky="e")
-
-    hints_label = ctk.CTkLabel(
-        footer_right,
-        text="⌨ Ctrl+Enter · Ctrl+,",
-        font=scaled_ui_font(font_scale, 10),
-        text_color=colors["text_muted"],
-    )
-    hints_label.pack(side="left", padx=(0, BUTTON_GAP))
+    status_label.pack(side="left", fill="x", expand=True)
     create_tooltip(
-        hints_label,
+        status_label,
         "Ctrl+Enter — перевод · Ctrl+, — настройки · Ctrl+Shift+C — захват текста",
         theme=theme,
     )
 
-    file_progress_frame = transparent_frame(footer_right)
+    file_progress_frame = transparent_frame(footer_inner)
     file_progress_frame.pack(side="right")
     file_progress_frame.pack_forget()
 
-    file_progress = ctk.CTkProgressBar(
-        file_progress_frame,
-        width=PROGRESS_WIDTH,
-        height=PROGRESS_HEIGHT,
-        progress_color=colors["progress_fill"],
-        fg_color=colors["progress_bg"],
-        corner_radius=0,
-    )
-    file_progress.pack()
-    file_progress.set(0)
-
     file_progress_var = tk.StringVar(value="")
     file_progress_label = ctk.CTkLabel(
-        status_inner,
+        file_progress_frame,
         textvariable=file_progress_var,
-        font=scaled_ui_font(font_scale, 11),
+        font=footer_font,
         text_color=colors["text_muted"],
-        anchor="w",
     )
-    file_progress_label.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
-    file_progress_label.grid_remove()
+    file_progress_label.pack(side="right", padx=(8, 0))
 
-    return MainWindowView(
+    llm_indicator_var = tk.StringVar(value="")
+    llm_indicator = ctk.CTkLabel(
+        footer_inner,
+        textvariable=llm_indicator_var,
+        font=footer_font,
+        text_color=colors["text_muted"],
+        anchor="e",
+    )
+    llm_indicator.pack(side="right", padx=(8, 0))
+
+    view = MainWindowView(
         main_frame=main,
+        panels=panels,
         lang_widget=lang_widget,
         src_panel=src_panel,
         translation_tabs=translation_tabs,
@@ -312,10 +298,10 @@ def build_main_window(
         status_var=status_var,
         llm_indicator_var=llm_indicator_var,
         llm_indicator=llm_indicator,
-        file_progress=file_progress,
         file_progress_var=file_progress_var,
         file_progress_label=file_progress_label,
         file_progress_frame=file_progress_frame,
         status_label=status_label,
-        hints_label=hints_label,
     )
+    set_editor_layout(view, editor_layout)
+    return view

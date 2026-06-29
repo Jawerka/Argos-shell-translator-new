@@ -31,7 +31,7 @@ class CompactLanguageSelector(TransparentFrame):
 
     def _create_widgets(self) -> None:
         colors = self._colors
-        label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=12)
+        label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=14)
         combo_kw = get_combobox_kwargs(self.theme)
 
         self.grid_columnconfigure(0, weight=1)

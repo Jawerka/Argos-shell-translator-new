@@ -7,6 +7,7 @@ from typing import Optional
 import customtkinter as ctk
 
 from argos_translator.ui.themes import ThemeName, get_color_theme
+from argos_translator.ui.font_scale import ui_font
 
 TOOLTIP_DELAY_MS = 600
 
@@ -64,7 +65,7 @@ class Tooltip:
             frame,
             text=self.text,
             text_color=self._fg,
-            font=ctk.CTkFont(size=11),
+            font=ui_font(),
             padx=6,
             pady=2,
         ).pack()

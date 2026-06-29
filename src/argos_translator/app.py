@@ -44,7 +44,17 @@ from argos_translator.services.model_manager import ModelManager
 from argos_translator.services.tray import TrayManager
 from argos_translator.services.translation_cache import TranslationCache
 from argos_translator.services.translation_coordinator import TranslationCoordinator
-from argos_translator.ui.main_window import MainWindowCallbacks, apply_ui_font_scale, build_main_window
+from argos_translator.ui.main_window import (
+    MainWindowCallbacks,
+    apply_editor_font_scale,
+    build_main_window,
+    set_editor_layout,
+)
+from argos_translator.ui.editor_layout import (
+    EditorLayout,
+    normalize_editor_layout,
+    toggle_layout_for_panel,
+)
 from argos_translator.ui.settings_dialog import SettingsDialog
 from argos_translator.ui.file_drop import setup_file_drop
 from argos_translator.ui.themes import apply_theme, get_status_color, setup_theme
@@ -102,6 +112,7 @@ class TranslatorApp:
         # Режимы
         self.streaming_enabled = tk.BooleanVar(value=self.settings.streaming)
         self.scroll_sync_enabled = tk.BooleanVar(value=self.settings.scroll_sync)
+        self._editor_layout: EditorLayout = normalize_editor_layout(self.settings.editor_layout)
 
         self.debounce_job: Optional[Any] = None
         self.llm_debounce_job: Optional[Any] = None
@@ -242,6 +253,8 @@ class TranslatorApp:
             on_copy_and_hide=self._copy_and_hide,
             on_tab_changed=self._on_translation_tab_changed,
             on_src_modified=self._on_src_modified,
+            on_llm_stream_append=self._update_paragraph_offsets,
+            on_editor_layout_changed=self._on_editor_layout_changed,
         )
         view = build_main_window(
             self.root, self.cfg, self.settings, self.languages, callbacks
@@ -255,13 +268,13 @@ class TranslatorApp:
         self.status_var = view.status_var
         self.llm_indicator_var = view.llm_indicator_var
         self.llm_indicator = view.llm_indicator
-        self.file_progress = view.file_progress
         self.file_progress_frame = view.file_progress_frame
         self.file_progress_var = view.file_progress_var
         self.file_progress_label = view.file_progress_label
         self._main_view = view
+        self._editor_layout: EditorLayout = normalize_editor_layout(self.settings.editor_layout)
         self._update_llm_indicator()
-        apply_ui_font_scale(view, self.settings.font_scale)
+        apply_editor_font_scale(view, self.settings.font_scale)
 
     def _update_window_title(self) -> None:
         if self._document_path:
@@ -659,8 +672,14 @@ class TranslatorApp:
         """Обновление оффсетов параграфов для синхронизации прокрутки."""
         try:
             src = self.src_panel.text.get("1.0", tk.END)
-            argos_widget = self.translation_tabs.argos_text
-            dst = argos_widget.get("1.0", tk.END)
+            if (
+                self.translation_tabs.get_active_engine() == "llm"
+                and self.translation_tabs.llm_text is not None
+            ):
+                dst_widget = self.translation_tabs.llm_text
+            else:
+                dst_widget = self.translation_tabs.argos_text
+            dst = dst_widget.get("1.0", tk.END)
 
             src_paras = re.split(r"\n{2,}", src)
             dst_paras = re.split(r"\n{2,}", dst)
@@ -720,7 +739,7 @@ class TranslatorApp:
 
     def _sync_scroll(self) -> None:
         """Синхронизация прокрутки между панелями."""
-        if not self.scroll_sync_enabled.get():
+        if not self.scroll_sync_enabled.get() or self._editor_layout != "split":
             self._sync_scroll_job = None
             return
 
@@ -909,6 +928,7 @@ class TranslatorApp:
                 self.settings.lang_to = self.lang_widget.get_to_code()
             if hasattr(self, "translation_tabs"):
                 self.settings.active_translation_tab = self.translation_tabs.get_active_engine()
+            self.settings.editor_layout = self._editor_layout
             save_settings(self.settings)
         except Exception as exc:
             logger.debug("Persist window state failed: %s", exc)
@@ -959,7 +979,9 @@ class TranslatorApp:
             save_settings(self.settings)
             apply_theme(self.root, self.settings.theme)
             self._apply_opacity()
-            apply_ui_font_scale(self._main_view, self.settings.font_scale)
+            apply_editor_font_scale(self._main_view, self.settings.font_scale)
+            layout = normalize_editor_layout(self.settings.editor_layout)
+            self._apply_editor_layout(layout)
             self.streaming_enabled.set(self.settings.streaming)
             self.scroll_sync_enabled.set(self.settings.scroll_sync)
             if self.settings.scroll_sync:
@@ -994,6 +1016,21 @@ class TranslatorApp:
         self.settings.active_translation_tab = tab_id
         self._update_paragraph_offsets()
         self._schedule_window_geometry_save()
+
+    def _on_editor_layout_changed(self, panel: str) -> None:
+        new_mode = toggle_layout_for_panel(self._editor_layout, panel)  # type: ignore[arg-type]
+        self._apply_editor_layout(new_mode)
+
+    def _apply_editor_layout(self, mode: EditorLayout) -> None:
+        self._editor_layout = mode
+        self.settings.editor_layout = mode
+        if hasattr(self, "_main_view"):
+            set_editor_layout(self._main_view, mode)
+        self._schedule_window_geometry_save()
+        if mode != "split":
+            self._stop_scroll_sync()
+        elif self.scroll_sync_enabled.get():
+            self._start_scroll_sync()
 
     def _check_llm_health_startup(self) -> None:
         if not self.settings.llm.enabled:
@@ -1076,20 +1113,11 @@ class TranslatorApp:
             self._hide_file_progress()
             return
         percent = min(100.0, (done / total) * 100)
-        self.file_progress.set(percent / 100.0)
-        self.file_progress_frame.pack(side="right")
-        para_hint = ""
-        if self._document_paragraph_count:
-            para_hint = f", ~{self._document_paragraph_count} абз."
-        self.file_progress_var.set(
-            f"Файл: {percent:.0f}% (чанк {done}/{total}{para_hint})"
-        )
-        self.file_progress_label.grid()
+        self.file_progress_var.set(f"{percent:.0f}%")
+        self.file_progress_frame.pack(side="right", before=self.llm_indicator)
 
     def _hide_file_progress(self) -> None:
         self.file_progress_frame.pack_forget()
-        self.file_progress_label.grid_remove()
-        self.file_progress.set(0)
         self.file_progress_var.set("")
 
     def _file_dialog_types(self) -> List[Tuple[str, str]]:
@@ -1241,6 +1269,7 @@ class TranslatorApp:
             time.sleep(0.05)
         self.coord.clear_llm_restart()
         self.coord.start_llm(llm_job)
+        self.translation_tabs.begin_llm_stream()
         self.translation_tabs.set_tab_status("llm", "streaming")
         self.llm_status_text = "LLM: streaming…"
         self._update_combined_status()
@@ -1282,7 +1311,7 @@ class TranslatorApp:
                 ui_scheduled[0] = False
                 if self.coord.llm_is_stale(llm_job):
                     return
-                self.translation_tabs.set_llm_text(pending_text[0])
+                self.translation_tabs.append_llm_stream_text(pending_text[0])
                 self.llm_status_text = "LLM: streaming…"
                 self._update_combined_status()
 
@@ -1313,7 +1342,7 @@ class TranslatorApp:
 
             def finish() -> None:
                 partial = "[LLM Error:" in full_text
-                self.translation_tabs.set_llm_text(full_text)
+                self.translation_tabs.end_llm_stream(final_text=full_text)
                 self.translation_tabs.set_tab_status("llm", "partial" if partial else "done")
                 if partial:
                     self.llm_status_text = "LLM: частично (есть ошибки)"
@@ -1334,11 +1363,11 @@ class TranslatorApp:
 
             def show_error() -> None:
                 if pending_text[0] and "[LLM Error:" in pending_text[0]:
-                    self.translation_tabs.set_llm_text(pending_text[0])
+                    self.translation_tabs.end_llm_stream(final_text=pending_text[0])
                     self.translation_tabs.set_tab_status("llm", "partial")
                     self.llm_status_text = "LLM: частично (есть ошибки)"
                 else:
-                    self.translation_tabs.set_llm_text(message)
+                    self.translation_tabs.end_llm_stream(final_text=message)
                     self.translation_tabs.set_tab_status("llm", "error")
                     self.llm_status_text = f"LLM: {message}"
                 self._update_combined_status()

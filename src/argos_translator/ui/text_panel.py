@@ -10,7 +10,8 @@ from typing import Any, Callable, List, Optional, Tuple
 import customtkinter as ctk
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.font_scale import scaled_text_font, scaled_title_font, scaled_ui_font
+from argos_translator.ui.editor_layout import EditorLayout
+from argos_translator.ui.font_scale import scaled_text_font, ui_font
 from argos_translator.ui.layout_config import (
     CARD_PADX,
     CARD_PADY,
@@ -21,6 +22,7 @@ from argos_translator.ui.layout_config import (
     get_text_inset_kwargs,
 )
 from argos_translator.ui.themes import ThemeName, get_color_theme
+from argos_translator.ui.tooltip import create_tooltip
 from argos_translator.ui.widgets import CardFrame, ghost_button, panel_title_label, transparent_frame
 from argos_translator.utils.imports import (
     ImportStatus,
@@ -44,6 +46,7 @@ class TextPanel(CardFrame):
         theme: ThemeName = "dark",
         font_scale: float = 1.0,
         show_char_count: bool = False,
+        on_editor_layout_toggle: Optional[Callable[[], None]] = None,
         **kwargs,
     ) -> None:
         super().__init__(parent, theme=theme, **kwargs)
@@ -55,6 +58,8 @@ class TextPanel(CardFrame):
         self._font_scale = font_scale
         self._colors = get_color_theme(theme)
         self._show_char_count = show_char_count and editable
+        self._on_editor_layout_toggle = on_editor_layout_toggle
+        self._editor_layout: EditorLayout = "split"
         self._char_count_job: Optional[str] = None
         self.text_host: ctk.CTkFrame
         self._char_count_label: Optional[ctk.CTkLabel] = None
@@ -73,22 +78,38 @@ class TextPanel(CardFrame):
         header_inner = transparent_frame(header)
         header_inner.pack(fill="both", expand=True)
 
-        self._title_label = panel_title_label(
-            header_inner,
-            self.title,
-            theme=self.theme,
-            font=scaled_title_font(self._font_scale),
-        )
-        self._title_label.pack(side="left", anchor="w")
+        self._title_label: Optional[ctk.CTkLabel] = None
+        if self.title:
+            self._title_label = panel_title_label(
+                header_inner,
+                self.title,
+                theme=self.theme,
+                font=ui_font(weight="bold"),
+            )
+            self._title_label.pack(side="left", anchor="w")
+
+        header_controls = transparent_frame(header_inner)
+        header_controls.pack(side="right", anchor="e")
+
+        if self._on_editor_layout_toggle is not None:
+            self._layout_btn = ghost_button(
+                header_controls,
+                "⤢",
+                self._on_editor_layout_toggle,
+                theme=self.theme,
+                width=32,
+            )
+            self._layout_btn.pack(side="left", padx=(0, 6))
+            create_tooltip(self._layout_btn, "На всю ширину", theme=self.theme)
 
         if self._show_char_count:
             self._char_count_label = ctk.CTkLabel(
-                header_inner,
+                header_controls,
                 text="0 симв.",
-                font=scaled_ui_font(self._font_scale, 10),
+                font=ui_font(),
                 text_color=colors["text_muted"],
             )
-            self._char_count_label.pack(side="right", anchor="e")
+            self._char_count_label.pack(side="left", anchor="e")
 
         tab_row = ctk.CTkFrame(inner, height=PANEL_TAB_ROW_HEIGHT, fg_color="transparent")
         tab_row.grid(row=1, column=0, sticky="ew")
@@ -103,7 +124,7 @@ class TextPanel(CardFrame):
             self.text_host,
             font=scaled_text_font(self._font_scale),
             fg_color=colors["input"],
-            text_color=colors["text_primary"],
+            text_color=colors["text_editor"],
             border_width=0,
             corner_radius=RADIUS_CONTROL,
             wrap="word",
@@ -155,12 +176,21 @@ class TextPanel(CardFrame):
         except Exception:
             pass
 
+    def set_editor_layout_state(self, mode: EditorLayout) -> None:
+        self._editor_layout = mode
+        if not hasattr(self, "_layout_btn"):
+            return
+        expanded = mode == "source"
+        self._layout_btn.configure(text="⤡" if expanded else "⤢")
+        create_tooltip(
+            self._layout_btn,
+            "Две панели" if expanded else "На всю ширину",
+            theme=self.theme,
+        )
+
     def apply_font_scale(self, scale: float) -> None:
         self._font_scale = scale
         self._ctk_text.configure(font=scaled_text_font(scale))
-        self._title_label.configure(font=scaled_title_font(scale))
-        if self._char_count_label is not None:
-            self._char_count_label.configure(font=scaled_ui_font(scale, 10))
 
     def get_text(self) -> str:
         if self.editable:

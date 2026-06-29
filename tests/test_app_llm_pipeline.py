@@ -54,6 +54,7 @@ def test_start_llm_translation_starts_worker_when_available(mock_translator_app)
             TranslatorApp._start_llm_translation(app, 1, "hello", "en", "ru")
 
         start_llm.assert_called_once_with(1)
+    app.translation_tabs.begin_llm_stream.assert_called_once()
     assert started.is_set()
 
 
@@ -68,6 +69,7 @@ def test_llm_worker_on_done_partial_status(mock_translator_app) -> None:
     with patch("argos_translator.app.translate_stream", side_effect=fake_translate_stream):
         TranslatorApp._llm_worker(app, 1, "long text", "en", "ru")
 
+    app.translation_tabs.end_llm_stream.assert_called_once()
     app.translation_tabs.set_tab_status.assert_called_with("llm", "partial")
 
 
