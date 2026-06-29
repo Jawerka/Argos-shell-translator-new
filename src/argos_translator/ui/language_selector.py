@@ -34,12 +34,8 @@ class CompactLanguageSelector(TransparentFrame):
         label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=12)
         combo_kw = get_combobox_kwargs(self.theme)
 
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_columnconfigure(5, weight=1)
-
-        ctk.CTkLabel(self, text="Из", font=label_font, text_color=colors["text_muted"]).grid(
-            row=0, column=0, padx=(0, BUTTON_GAP)
-        )
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
         self.var_from = ctk.StringVar(value="AUTO")
         self.combo_from = ctk.CTkComboBox(
@@ -55,14 +51,7 @@ class CompactLanguageSelector(TransparentFrame):
             font=label_font,
             **combo_kw,
         )
-        self.combo_from.grid(row=0, column=1, sticky="ew", padx=(0, BUTTON_GAP))
-
-        ctk.CTkLabel(
-            self,
-            text="→",
-            font=ctk.CTkFont(family=UI_FONT_FAMILY, size=14),
-            text_color=colors["text_muted"],
-        ).grid(row=0, column=2, padx=(0, BUTTON_GAP))
+        self.combo_from.grid(row=0, column=0, sticky="ew", padx=(0, BUTTON_GAP))
 
         self.btn_swap = accent_button(
             self,
@@ -73,12 +62,8 @@ class CompactLanguageSelector(TransparentFrame):
             height=BTN_HEIGHT_SM,
             font=ctk.CTkFont(size=14),
         )
-        self.btn_swap.grid(row=0, column=3, padx=(0, BUTTON_GAP))
+        self.btn_swap.grid(row=0, column=1, padx=(0, BUTTON_GAP))
         create_tooltip(self.btn_swap, "Поменять языки местами", theme=self.theme)
-
-        ctk.CTkLabel(self, text="В", font=label_font, text_color=colors["text_muted"]).grid(
-            row=0, column=4, padx=(0, BUTTON_GAP)
-        )
 
         options = self._get_language_options()
         default_to = (
@@ -100,7 +85,7 @@ class CompactLanguageSelector(TransparentFrame):
             font=label_font,
             **combo_kw,
         )
-        self.combo_to.grid(row=0, column=5, sticky="ew")
+        self.combo_to.grid(row=0, column=2, sticky="ew")
 
     def _get_language_options(self) -> List[str]:
         return [f"{code.upper()} - {name}" for code, name in sorted(self.languages.items())]

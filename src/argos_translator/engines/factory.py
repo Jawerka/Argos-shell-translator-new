@@ -53,14 +53,16 @@ class LLMTranslateEngine:
         done.wait(timeout=self._settings.llm.timeout_sec + 5)
         if error:
             raise RuntimeError(error[0])
+        if not done.is_set():
+            raise RuntimeError("LLM translation timed out")
         return "".join(result)
 
 
 Engine = Union[TranslateEngine, LLMTranslateEngine]
 
 
-def create_argos_engine() -> TranslateEngine:
-    return TranslateEngine()
+def create_argos_engine(prefer_api: bool = True) -> TranslateEngine:
+    return TranslateEngine(prefer_api=prefer_api)
 
 
 def is_llm_available(settings: AppSettings) -> bool:
@@ -79,7 +81,7 @@ def create_engine(
     languages: Dict[str, str] | None = None,
 ) -> Engine:
     if name == "argos":
-        return create_argos_engine()
+        return create_argos_engine(settings.argos.prefer_api_over_cli)
     if name == "llm":
         assert_llm_enabled(settings)
         return LLMTranslateEngine(settings, languages)

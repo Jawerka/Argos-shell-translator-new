@@ -143,13 +143,14 @@ def icon_button(
     width: int = 40,
     **kwargs,
 ) -> ctk.CTkButton:
+    font = kwargs.pop("font", ctk.CTkFont(size=16))
     return accent_button(
         master,
         text,
         command,
         theme=theme,
         width=width,
-        font=ctk.CTkFont(size=16),
+        font=font,
         **kwargs,
     )
 

@@ -47,6 +47,21 @@ def test_cli_fallback(monkeypatch) -> None:
     mock_run.assert_called_once()
 
 
+def test_prefer_cli_over_api(monkeypatch) -> None:
+    fake = SimpleNamespace(translate=lambda text, fc, tc: "api")
+    monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", fake)
+    monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.SUCCESS)
+
+    engine = TranslateEngine(prefer_api=False)
+    engine.cli_path = __import__("pathlib").Path("/fake/argos-translate")
+    mock_run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="cli", stderr=""))
+    monkeypatch.setattr(argos_engine.subprocess, "run", mock_run)
+
+    assert engine.prefer_api is False
+    assert engine.translate("text", "en", "ru") == "cli"
+    mock_run.assert_called_once()
+
+
 def test_no_backend_raises(monkeypatch) -> None:
     monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", None)
     monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.MISSING)

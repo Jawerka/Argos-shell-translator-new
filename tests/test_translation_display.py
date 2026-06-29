@@ -9,17 +9,6 @@ from argos_translator.config.constants import UIConfig
 from argos_translator.ui.translation_tabs import TranslationTabs
 
 
-@pytest.fixture
-def ctk_root():
-    try:
-        root = ctk.CTk()
-    except Exception:
-        pytest.skip("CustomTkinter unavailable (no display)")
-    root.withdraw()
-    yield root
-    root.destroy()
-
-
 def test_set_argos_text_visible_in_ctk_widget(ctk_root: ctk.CTk) -> None:
     frame = ctk.CTkFrame(ctk_root, fg_color="transparent")
     tabs = TranslationTabs(frame, cfg=UIConfig(), llm_enabled=False)

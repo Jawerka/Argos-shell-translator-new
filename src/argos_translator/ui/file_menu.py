@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from typing import Callable
 
 import customtkinter as ctk
 
 from argos_translator.ui.themes import ThemeName, apply_menu_theme, style_menu
+
+# Segoe MDL2 Assets (Windows): E7C3 Page — лист с загнутым углом; E8E5 OpenFile — документ со строками.
+_FILE_MENU_GLYPH_WIN = "\uE7C3"
+_FILE_MENU_GLYPH_FALLBACK = "\U0001F4C3"  # 📃 page with curl
+_TOOLBAR_ICON_SIZE = 18
+
+
+def file_menu_button_text() -> str:
+    """Иконка «файл / документ» для кнопки меню."""
+    if sys.platform == "win32":
+        return _FILE_MENU_GLYPH_WIN
+    return _FILE_MENU_GLYPH_FALLBACK
+
+
+def file_menu_button_font() -> ctk.CTkFont:
+    if sys.platform == "win32":
+        return ctk.CTkFont(family="Segoe MDL2 Assets", size=_TOOLBAR_ICON_SIZE)
+    return ctk.CTkFont(size=_TOOLBAR_ICON_SIZE)
 
 
 def create_toolbar_more_menu(

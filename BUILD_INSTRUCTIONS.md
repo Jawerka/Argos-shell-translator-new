@@ -89,7 +89,7 @@ dist/ArgosTranslator/
 
 Кастомные хуки в `hooks/`:
 
-- `hook-numpy.py` — numpy + DLL
+- `hooks/hook-numpy.py` — numpy + DLL
 - `hook-ctranslate2.py` — ctranslate2 DLL
 - `hook-argostranslate.py` — подмодули argostranslate
 

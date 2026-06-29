@@ -8,17 +8,6 @@ import pytest
 from argos_translator.ui.themes import DARK_COLORS, LIGHT_COLORS, apply_theme, get_status_color, setup_theme
 
 
-@pytest.fixture
-def ctk_root():
-    try:
-        root = ctk.CTk()
-    except Exception:
-        pytest.skip("CustomTkinter unavailable (no display)")
-    root.withdraw()
-    yield root
-    root.destroy()
-
-
 def test_setup_theme_dark() -> None:
     setup_theme("dark")
     assert ctk.get_appearance_mode() == "Dark"
@@ -27,7 +16,7 @@ def test_setup_theme_dark() -> None:
 def test_apply_theme_dark(ctk_root: ctk.CTk) -> None:
     colors = apply_theme(ctk_root, "dark")
     assert colors is not None
-    assert ctk_root.cget("fg_color") == DARK_COLORS["bg"] or True
+    assert ctk_root.cget("fg_color") == DARK_COLORS["bg"]
 
 
 def test_apply_theme_light(ctk_root: ctk.CTk) -> None:

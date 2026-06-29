@@ -4,6 +4,38 @@ All notable changes to Argos Translate Streaming are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- LLM file translation: disjoint chunking (paragraph → sentence → word) with `file_chunk_max_chars` (default 3500)
+- Read-only context between LLM file chunks: source excerpt + translated tail (`file_chunk_context`)
+- Adaptive `max_tokens` and per-chunk read timeout based on block size
+- LLM file progress: «LLM: блок X/Y…» and shared file progress bar
+- Settings (LLM advanced): file chunk size and inter-chunk context toggle
+- `settings.json` v8: `chunk_max_chars`, `file_chunk_max_chars`, `file_chunk_context`
+
+### Changed
+
+- LLM chunking: removed translate overlap (fixes duplicate/mismatched segments at boundaries)
+- **Pipeline resilience:** LLM per-chunk errors no longer abort the whole job; partial translation is preserved with `[LLM Error: …]` markers
+- **LLM retries:** connect errors, HTTP 5xx and 429 get one automatic retry with backoff
+- **Argos preflight:** missing language pair shows a clear message before starting the worker; LLM can still run
+- **`prefer_api_over_cli`** setting is now respected by `TranslateEngine`
+- Settings numeric fields are clamped to safe ranges on load (`clamp_settings`)
+
+### Tests
+
+- App pipeline tests: Argos worker, translate results, LLM pipeline, translate entry, file I/O
+- Settings robustness tests (corrupt JSON, clamping, migrations)
+- `pytest-cov` in CI for `engines/`, `services/`, `config/` (≥80%)
+
+### Removed
+
+- Legacy `test_translation.py` manual check script (use `pytest -m integration`)
+- Obsolete `pyinstall.md` stub (see `BUILD_INSTRUCTIONS.md`)
+- Duplicate root `hook-numpy.py` (use `hooks/hook-numpy.py`)
+
 ## [2.1.0] — 2026-06-06
 
 ### Added

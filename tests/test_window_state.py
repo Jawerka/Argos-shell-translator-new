@@ -43,17 +43,6 @@ def test_clamp_shrinks_oversized_window() -> None:
     assert clamped.height <= 10000
 
 
-@pytest.fixture
-def ctk_root():
-    try:
-        root = ctk.CTk()
-    except Exception:
-        pytest.skip("CustomTkinter unavailable (no display)")
-    root.withdraw()
-    yield root
-    root.destroy()
-
-
 def test_capture_uses_geometry_not_winfo(ctk_root: ctk.CTk) -> None:
     ctk_root.geometry("1000x700+100+100")
     ctk_root.deiconify()

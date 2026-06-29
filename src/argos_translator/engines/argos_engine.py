@@ -21,18 +21,20 @@ logger = logging.getLogger("ArgosStreaming")
 
 
 class TranslateEngine:
-    def __init__(self) -> None:
-        self.use_api = ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and AT_TRANSLATE_MODULE is not None
-        self.cli_path: Optional[Path] = None
+    def __init__(self, prefer_api: bool = True) -> None:
+        self.prefer_api = prefer_api
+        self._api_available = (
+            ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and AT_TRANSLATE_MODULE is not None
+        )
+        self.cli_path: Optional[Path] = self._find_cli_executable()
+        self.use_api = self._api_available and prefer_api
 
-        if not self.use_api:
-            self.cli_path = self._find_cli_executable()
-            if self.cli_path:
-                logger.info("Using CLI: %s", self.cli_path)
-            else:
-                logger.warning("No translation backend found")
-        else:
+        if self.use_api:
             logger.info("Using Argos Python API")
+        elif self.cli_path:
+            logger.info("Using CLI: %s", self.cli_path)
+        elif not self._api_available:
+            logger.warning("No translation backend found")
 
     @staticmethod
     def _find_cli_executable() -> Optional[Path]:
@@ -64,13 +66,18 @@ class TranslateEngine:
             text[:50] + ("…" if len(text) > 50 else ""),
         )
 
-        if self.use_api and AT_TRANSLATE_MODULE is not None:
+        if not self.prefer_api and self.cli_path:
+            return self._translate_cli(text, from_code, to_code)
+
+        if self._api_available and AT_TRANSLATE_MODULE is not None:
             try:
                 translate_fn = getattr(AT_TRANSLATE_MODULE, "translate", None)
                 if callable(translate_fn):
                     return translate_fn(text, from_code, to_code)
             except Exception as exc:
                 logger.warning("API error, fallback to CLI: %s", exc)
+                if self.cli_path is None:
+                    self.cli_path = self._find_cli_executable()
 
         if not self.cli_path:
             raise RuntimeError("No translation backend available")

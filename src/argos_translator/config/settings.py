@@ -14,7 +14,7 @@ from argos_translator.ui.window_state import WindowState
 
 logger = logging.getLogger("ArgosStreaming")
 
-CURRENT_SETTINGS_VERSION = 7
+CURRENT_SETTINGS_VERSION = 8
 
 
 @dataclass
@@ -67,6 +67,9 @@ class LLMSettings:
     stream: bool = True
     health_check_ttl_sec: int = 30
     system_prompt: str = ""
+    chunk_max_chars: int = 6000
+    file_chunk_max_chars: int = 3500
+    file_chunk_context: bool = True
 
 
 @dataclass
@@ -126,6 +129,9 @@ class AppSettings:
                 "stream": self.llm.stream,
                 "health_check_ttl_sec": self.llm.health_check_ttl_sec,
                 "system_prompt": self.llm.system_prompt,
+                "chunk_max_chars": self.llm.chunk_max_chars,
+                "file_chunk_max_chars": self.llm.file_chunk_max_chars,
+                "file_chunk_context": self.llm.file_chunk_context,
             },
             "ui": {
                 "active_translation_tab": self.active_translation_tab,
@@ -203,6 +209,9 @@ class AppSettings:
             stream=bool(llm_data.get("stream", True)),
             health_check_ttl_sec=int(llm_data.get("health_check_ttl_sec", 30)),
             system_prompt=str(llm_data.get("system_prompt", "")),
+            chunk_max_chars=int(llm_data.get("chunk_max_chars", 6000)),
+            file_chunk_max_chars=int(llm_data.get("file_chunk_max_chars", 3500)),
+            file_chunk_context=bool(llm_data.get("file_chunk_context", True)),
         )
 
         streaming = translation.get("streaming", window.get("streaming", True))
@@ -327,21 +336,47 @@ def migrate_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         data.setdefault("translation", {})["cache_enabled"] = False
         data.setdefault("translation", {})["cache_size"] = 500
         version = 7
+    if version < 8:
+        llm = data.setdefault("llm", {})
+        llm.setdefault("chunk_max_chars", 6000)
+        llm.setdefault("file_chunk_max_chars", 3500)
+        llm.setdefault("file_chunk_context", True)
+        version = 8
     data["version"] = version
     return data
+
+
+def clamp_settings(settings: AppSettings) -> AppSettings:
+    """Ограничить числовые поля допустимыми диапазонами после загрузки."""
+    settings.debounce_ms = max(100, min(5000, int(settings.debounce_ms)))
+    settings.llm_debounce_ms = max(200, min(10000, int(settings.llm_debounce_ms)))
+    settings.opacity = max(0.3, min(1.0, float(settings.opacity)))
+    settings.llm.temperature = max(0.0, min(2.0, float(settings.llm.temperature)))
+    settings.llm.max_tokens = max(64, min(128000, int(settings.llm.max_tokens)))
+    settings.llm.timeout_sec = max(5, min(600, int(settings.llm.timeout_sec)))
+    settings.llm.health_check_ttl_sec = max(5, min(300, int(settings.llm.health_check_ttl_sec)))
+    settings.llm.chunk_max_chars = max(500, int(settings.llm.chunk_max_chars))
+    settings.llm.file_chunk_max_chars = max(500, int(settings.llm.file_chunk_max_chars))
+    settings.behavior.translation_cache_size = max(10, min(10000, int(settings.behavior.translation_cache_size)))
+    settings.files.max_file_size_mb = max(1, min(500, int(settings.files.max_file_size_mb)))
+    settings.files.large_file_warn_chars = max(1000, int(settings.files.large_file_warn_chars))
+    settings.files.hotkey_auto_translate_max_chars = max(
+        50, int(settings.files.hotkey_auto_translate_max_chars)
+    )
+    return settings
 
 
 def load_settings(cfg: UIConfig, path: Optional[Path] = None) -> AppSettings:
     cfg_path = path or get_settings_path()
     if not cfg_path.exists():
-        return AppSettings()
+        return clamp_settings(AppSettings())
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return AppSettings.from_dict(data, cfg)
+        return clamp_settings(AppSettings.from_dict(data, cfg))
     except Exception as exc:
         logger.debug("Load settings failed: %s", exc)
-        return AppSettings()
+        return clamp_settings(AppSettings())
 
 
 def save_settings(settings: AppSettings, path: Optional[Path] = None) -> None:

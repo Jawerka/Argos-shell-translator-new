@@ -74,7 +74,7 @@ class TranslatorApp:
         self.cfg = UIConfig()
         self.settings = settings or load_settings(self.cfg)
         self._settings_file_exists = get_settings_path().exists()
-        self.engine = TranslateEngine()
+        self.engine = TranslateEngine(prefer_api=self.settings.argos.prefer_api_over_cli)
         self._translation_cache = TranslationCache(
             max_size=self.settings.behavior.translation_cache_size
         )
@@ -105,6 +105,7 @@ class TranslatorApp:
 
         self.debounce_job: Optional[Any] = None
         self.llm_debounce_job: Optional[Any] = None
+        self._suppress_src_modified: bool = False
         self._window_save_job: Optional[Any] = None
         self._skip_geometry_save: bool = False
         self._window_geometry_restored: bool = False
@@ -324,12 +325,26 @@ class TranslatorApp:
     def tray_enabled(self) -> bool:
         return self.tray.enabled
 
+    def _cancel_pending_translate_jobs(self) -> None:
+        for attr in ("debounce_job", "llm_debounce_job"):
+            job = getattr(self, attr, None)
+            if not job:
+                continue
+            try:
+                self.root.after_cancel(job)
+            except Exception:
+                pass
+            setattr(self, attr, None)
+
     def _on_src_modified(self, event: Optional[tk.Event] = None) -> None:
         """Обработчик изменения исходного текста."""
         try:
             self.src_panel.text.edit_modified(False)
         except Exception:
             pass
+
+        if self._suppress_src_modified:
+            return
 
         if self._document_path is not None:
             self._document_dirty = True
@@ -366,12 +381,7 @@ class TranslatorApp:
 
     def translate(self, event: Optional[tk.Event] = None, streaming: bool = False) -> None:
         """Запустить перевод текста."""
-        if self.debounce_job:
-            try:
-                self.root.after_cancel(self.debounce_job)
-            except Exception:
-                pass
-            self.debounce_job = None
+        self._cancel_pending_translate_jobs()
 
         text = self.src_panel.get_text()
         if not text or len(text.strip()) < 2:
@@ -395,9 +405,6 @@ class TranslatorApp:
         if not units:
             return
 
-        job_id = self.coord.allocate_job()
-        self.coord.start_argos(job_id, len(units))
-
         from_code = self.lang_widget.get_from_code()
         to_code = self.lang_widget.get_to_code()
 
@@ -417,6 +424,37 @@ class TranslatorApp:
                     pass
             except Exception:
                 pass
+
+        job_id = self.coord.allocate_job()
+        model_mgr = ModelManager(self.settings.argos.packages_dir)
+        argos_pair_available = model_mgr.has_pair(from_code, to_code)
+
+        if not argos_pair_available:
+            logger.warning("Argos preflight: no model for %s→%s", from_code, to_code)
+            self.translation_tabs.clear_argos()
+            self.translation_tabs.set_argos_text(
+                f"[Argos: нет модели {from_code}→{to_code}]"
+            )
+            self.translation_tabs.set_tab_status("argos", "error")
+            self.translate_status_var.set(f"Argos: нет модели {from_code}→{to_code}")
+            self._update_combined_status()
+            if self._document_path:
+                self._hide_file_progress()
+            if not streaming:
+                self._start_llm_translation(
+                    job_id, text, from_code, to_code, self._document_file_type
+                )
+            logger.info(
+                "Translation started (LLM only): job=%d %s→%s, %d chars, streaming=%s",
+                job_id,
+                from_code,
+                to_code,
+                len(text),
+                streaming,
+            )
+            return
+
+        self.coord.start_argos(job_id, len(units))
 
         self.translation_tabs.clear_argos()
 
@@ -938,6 +976,7 @@ class TranslatorApp:
             self._translation_cache = TranslationCache(
                 max_size=new_settings.behavior.translation_cache_size
             )
+            self.engine = TranslateEngine(prefer_api=new_settings.argos.prefer_api_over_cli)
 
         def on_geometry_save(partial: AppSettings) -> None:
             self.settings.settings_dialog_state = partial.settings_dialog_state
@@ -1071,7 +1110,12 @@ class TranslatorApp:
         self._document_file_type = file_type_hint(decoded.path)
         self._document_dirty = False
         self._document_paragraph_count = len(TextUtils.split_into_paragraphs(decoded.text))
-        self.src_panel.set_text(decoded.text)
+        self._cancel_pending_translate_jobs()
+        self._suppress_src_modified = True
+        try:
+            self.src_panel.set_text(decoded.text)
+        finally:
+            self.root.after(0, lambda: setattr(self, "_suppress_src_modified", False))
         self._update_window_title()
         self._update_document_status()
         self.translate()
@@ -1268,9 +1312,14 @@ class TranslatorApp:
             )
 
             def finish() -> None:
+                partial = "[LLM Error:" in full_text
                 self.translation_tabs.set_llm_text(full_text)
-                self.translation_tabs.set_tab_status("llm", "done")
-                self.llm_status_text = "LLM: ✓ готово"
+                self.translation_tabs.set_tab_status("llm", "partial" if partial else "done")
+                if partial:
+                    self.llm_status_text = "LLM: частично (есть ошибки)"
+                else:
+                    self.llm_status_text = "LLM: ✓ готово"
+                    self.llm_health.invalidate()
                 self._update_combined_status()
 
             self.root.after(0, finish)
@@ -1284,13 +1333,31 @@ class TranslatorApp:
                 self.llm_health.mark_busy()
 
             def show_error() -> None:
-                self.translation_tabs.set_llm_text(message)
-                self.translation_tabs.set_tab_status("llm", "error")
-                self.llm_status_text = f"LLM: {message}"
+                if pending_text[0] and "[LLM Error:" in pending_text[0]:
+                    self.translation_tabs.set_llm_text(pending_text[0])
+                    self.translation_tabs.set_tab_status("llm", "partial")
+                    self.llm_status_text = "LLM: частично (есть ошибки)"
+                else:
+                    self.translation_tabs.set_llm_text(message)
+                    self.translation_tabs.set_tab_status("llm", "error")
+                    self.llm_status_text = f"LLM: {message}"
                 self._update_combined_status()
                 self._update_llm_indicator()
 
             self.root.after(0, show_error)
+
+        def on_chunk_progress(done: int, total: int) -> None:
+            if not file_type:
+                return
+
+            def update_progress() -> None:
+                if self.coord.llm_is_stale(llm_job):
+                    return
+                self._show_file_progress(done, total)
+                self.llm_status_text = f"LLM: блок {done}/{total}…"
+                self._update_combined_status()
+
+            self.root.after(0, update_progress)
 
         try:
             logger.info("LLM worker %d: calling translate_stream", llm_job)
@@ -1305,6 +1372,7 @@ class TranslatorApp:
                 on_error,
                 self.coord.llm_stop,
                 file_type=file_type,
+                on_chunk_progress=on_chunk_progress,
             )
         except Exception as exc:
             logger.error("LLM worker %d: exception: %s", llm_job, exc)

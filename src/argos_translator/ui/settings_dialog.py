@@ -722,6 +722,26 @@ class SettingsDialog(ctk.CTkToplevel):
             self.llm_advanced_frame, "Сбросить промпт", self._reset_prompt, theme=self.theme, width=140,
         ).grid(row=2, column=1, sticky="w", pady=4)
 
+        ctk.CTkLabel(
+            self.llm_advanced_frame, text="Файлы (LLM):", font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self._colors["text_primary"], anchor="w",
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 4))
+
+        self.var_file_chunk_max = tk.StringVar(value=str(self.settings.llm.file_chunk_max_chars))
+        file_chunk_entry = self._entry(self.llm_advanced_frame, width=120)
+        file_chunk_entry.configure(textvariable=self.var_file_chunk_max)
+        self._form_row(self.llm_advanced_frame, "Размер блока (файл):", file_chunk_entry, 4)
+
+        self.var_file_chunk_context = tk.BooleanVar(value=self.settings.llm.file_chunk_context)
+        ctk.CTkCheckBox(
+            self.llm_advanced_frame,
+            text="Контекст между блоками при переводе файлов",
+            variable=self.var_file_chunk_context,
+            fg_color=self._colors["primary"],
+            hover_color=self._colors["primary_hover"],
+            text_color=self._colors["text_primary"],
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=4)
+
     def _toggle_llm_advanced(self) -> None:
         if self.var_llm_advanced.get():
             self.llm_advanced_frame.grid()
@@ -819,6 +839,8 @@ class SettingsDialog(ctk.CTkToplevel):
         s.llm.model = self.entry_model.get().strip()
         s.llm.temperature = float(self.var_temperature.get())
         s.llm.system_prompt = self.prompt_text.get("1.0", "end-1c").strip()
+        s.llm.file_chunk_max_chars = int(self.var_file_chunk_max.get())
+        s.llm.file_chunk_context = self.var_file_chunk_context.get()
         s.files.output_encoding = self.var_output_encoding.get()
         s.files.output_suffix = self.var_output_suffix.get().strip() or "_translated"
         s.files.max_file_size_mb = int(self.var_max_file_mb.get())

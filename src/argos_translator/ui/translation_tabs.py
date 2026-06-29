@@ -34,6 +34,7 @@ _TAB_KEYS = {"argos": "Argos", "llm": "LLM"}
 _STATUS_DISPLAY = {
     "streaming": ("●", "busy"),
     "done": ("✓", "available"),
+    "partial": ("!", "busy"),
     "error": ("✗", "error"),
     "offline": ("○", "offline"),
 }

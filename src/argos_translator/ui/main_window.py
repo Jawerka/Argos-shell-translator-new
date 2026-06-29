@@ -14,10 +14,12 @@ from argos_translator.ui.file_menu import (
     clear_window_menubar,
     create_file_popup_menu,
     create_toolbar_more_menu,
+    file_menu_button_font,
+    file_menu_button_text,
     show_popup_menu,
 )
 from argos_translator.ui.language_selector import CompactLanguageSelector
-from argos_translator.ui.font_scale import scaled_title_font, scaled_ui_font
+from argos_translator.ui.font_scale import scaled_ui_font
 from argos_translator.ui.layout_config import (
     BUTTON_GAP,
     CARD_PADX,
@@ -133,22 +135,16 @@ def build_main_window(
         on_quit=callbacks.on_quit,
         theme=theme,
     )
-    file_btn = ghost_button(
+    file_btn = icon_button(
         toolbar_left,
-        "Файл ▾",
+        file_menu_button_text(),
         command=lambda: show_popup_menu(file_btn, file_menu),
         theme=theme,
-        width=72,
+        width=40,
+        font=file_menu_button_font(),
     )
     file_btn.pack(side="left")
-    create_tooltip(file_btn, "Открыть, сохранить, выход", theme=theme)
-
-    ctk.CTkLabel(
-        toolbar_left,
-        text="Argos Translate",
-        font=scaled_title_font(font_scale),
-        text_color=colors["text_primary"],
-    ).pack(side="left", padx=(BUTTON_GAP, 0))
+    create_tooltip(file_btn, "Файл: открыть, сохранить, выход", theme=theme)
 
     lang_widget = CompactLanguageSelector(toolbar_center, languages, cfg, theme=theme)
     lang_widget.grid(row=0, column=0, sticky="ew")

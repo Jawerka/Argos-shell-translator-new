@@ -16,17 +16,6 @@ from argos_translator.engines.llm_engine import LLMDisabledError, translate_stre
 from argos_translator.ui.translation_tabs import TranslationTabs
 
 
-@pytest.fixture
-def ctk_root():
-    try:
-        root = ctk.CTk()
-    except Exception:
-        pytest.skip("CustomTkinter unavailable (no display)")
-    root.withdraw()
-    yield root
-    root.destroy()
-
-
 def test_is_llm_available_respects_setting() -> None:
     settings = AppSettings()
     settings.llm.enabled = True

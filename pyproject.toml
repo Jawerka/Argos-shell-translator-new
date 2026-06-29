@@ -24,6 +24,7 @@ dependencies = [
 dev = [
     "pyinstaller>=5.0.0",
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "ruff>=0.4.0",
 ]
 
@@ -47,3 +48,18 @@ pythonpath = ["src"]
 markers = [
     "integration: tests requiring installed Argos models or LLM server",
 ]
+
+[tool.coverage.run]
+source = ["argos_translator"]
+omit = [
+    "*/services/tray.py",
+    "*/services/clipboard.py",
+    "*/services/hotkeys.py",
+    "*/services/frozen_bootstrap.py",
+    "*/services/model_manager.py",
+    "*/engines/base.py",
+    "*/engines/factory.py",
+]
+
+[tool.coverage.report]
+fail_under = 80

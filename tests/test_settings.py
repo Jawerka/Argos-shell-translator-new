@@ -90,6 +90,14 @@ def test_settings_dialog_state_roundtrip(tmp_path: Path) -> None:
     assert loaded.settings_dialog_state.geometry_units == "tk_geometry"
 
 
+def test_migrate_v8_llm_chunks() -> None:
+    legacy = {"version": 7, "window": {}, "languages": {}, "translation": {}, "llm": {}}
+    migrated = migrate_settings(legacy)
+    assert migrated["version"] == CURRENT_SETTINGS_VERSION
+    assert migrated["llm"]["file_chunk_max_chars"] == 3500
+    assert migrated["llm"]["file_chunk_context"] is True
+
+
 def test_migrate_v6_adds_behavior() -> None:
     legacy = {"version": 6, "window": {}, "languages": {}, "translation": {}, "llm": {}}
     migrated = migrate_settings(legacy)

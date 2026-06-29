@@ -28,7 +28,7 @@ jobs:
         run: python scripts/verify_spec.py
 
       - name: Run tests
-        run: pytest tests/ -q -m "not integration"
+        run: pytest tests/ -q -m "not integration" --cov=argos_translator.engines --cov=argos_translator.services --cov=argos_translator.config --cov-fail-under=80
 
       - name: Ruff (syntax / critical)
         run: ruff check src tests

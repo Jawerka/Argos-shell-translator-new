@@ -33,3 +33,6 @@ argos_models/
 installers/
 log/
 *.log
+.coverage
+htmlcov/
+.pytest_cache/
