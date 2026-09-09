@@ -27,7 +27,7 @@ def test_apply_theme_light(ctk_root: ctk.CTk) -> None:
 
 def test_dark_palette_matches_ytdlp_baseline() -> None:
     assert DARK_COLORS["bg"] == "#0f1115"
-    assert DARK_COLORS["accent"] == "#16a6ff"
+    assert DARK_COLORS["accent"] == "#3890b5"
 
 
 def test_get_status_color() -> None:

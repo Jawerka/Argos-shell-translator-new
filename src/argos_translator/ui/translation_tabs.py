@@ -13,8 +13,12 @@ from argos_translator.config.constants import UIConfig
 from argos_translator.ui.editor_layout import EditorLayout
 from argos_translator.ui.font_scale import scaled_text_font, ui_font
 from argos_translator.ui.layout_config import (
+    BTN_ICON_WIDTH,
+    BUTTON_GAP,
     CARD_PADX,
     CARD_PADY,
+    CHECKBOX_COMPACT_SIZE,
+    HEADER_CONTROLS_GAP,
     PANEL_BUTTON_ROW_HEIGHT,
     PANEL_HEADER_HEIGHT,
     PANEL_TAB_ROW_HEIGHT,
@@ -23,7 +27,7 @@ from argos_translator.ui.layout_config import (
 )
 from argos_translator.ui.themes import ThemeName, get_color_theme, get_status_color
 from argos_translator.ui.tooltip import create_tooltip
-from argos_translator.ui.widgets import CardFrame, ghost_button, transparent_frame
+from argos_translator.ui.widgets import CardFrame, ghost_button, themed_checkbox, transparent_frame
 from argos_translator.utils.imports import (
     ImportStatus,
     PYPERCLIP_MODULE,
@@ -57,6 +61,7 @@ class TranslationTabs(CardFrame):
         on_tab_changed: Optional[Callable[[str], None]] = None,
         on_llm_stream_append: Optional[Callable[[], None]] = None,
         on_editor_layout_toggle: Optional[Callable[[], None]] = None,
+        on_llm_enabled_changed: Optional[Callable[[bool], None]] = None,
         theme: ThemeName = "dark",
         font_scale: float = 1.0,
         **kwargs,
@@ -71,6 +76,7 @@ class TranslationTabs(CardFrame):
         self._on_tab_changed = on_tab_changed
         self._on_llm_stream_append = on_llm_stream_append
         self._on_editor_layout_toggle = on_editor_layout_toggle
+        self._on_llm_enabled_changed = on_llm_enabled_changed
         self._editor_layout: EditorLayout = "split"
         self._llm_streaming = False
         self._tab_status: Dict[str, Optional[str]] = {"argos": None, "llm": None}
@@ -80,6 +86,9 @@ class TranslationTabs(CardFrame):
         self._argos_box: ctk.CTkTextbox
         self._llm_box: Optional[ctk.CTkTextbox] = None
         self._segmented: Optional[ctk.CTkSegmentedButton] = None
+        self._llm_enable_var = tk.BooleanVar(value=llm_enabled)
+        self._llm_enable_cb: Optional[ctk.CTkCheckBox] = None
+        self._suppress_llm_enable_cb = False
         self.text_host: ctk.CTkFrame
 
         inner = transparent_frame(self)
@@ -93,6 +102,8 @@ class TranslationTabs(CardFrame):
 
         header_controls = transparent_frame(header)
         header_controls.pack(side="right")
+        self._header_controls = header_controls
+        gap = (0, HEADER_CONTROLS_GAP)
 
         if self._on_editor_layout_toggle is not None:
             self._layout_btn = ghost_button(
@@ -100,22 +111,39 @@ class TranslationTabs(CardFrame):
                 "⤢",
                 self._on_editor_layout_toggle,
                 theme=self.theme,
-                width=32,
+                width=BTN_ICON_WIDTH,
             )
-            self._layout_btn.pack(side="left", padx=(0, 6))
+            self._layout_btn.pack(side="left", padx=gap)
             create_tooltip(self._layout_btn, "На всю ширину", theme=self.theme)
 
-        badges = transparent_frame(header_controls)
-        badges.pack(side="right")
-        for engine in ("argos", "llm"):
-            badge = ctk.CTkLabel(
-                badges,
-                text="",
-                font=ui_font(),
-                text_color=self._colors["text_muted"],
-            )
-            badge.pack(side="left")
-            self._status_badges[engine] = badge
+        self._status_badges["argos"] = ctk.CTkLabel(
+            header_controls,
+            text=_TAB_KEYS["argos"],
+            font=ui_font(),
+            text_color=self._colors["text_muted"],
+        )
+        self._status_badges["argos"].pack(side="left", padx=gap)
+
+        self._llm_enable_cb = themed_checkbox(
+            header_controls,
+            text="",
+            variable=self._llm_enable_var,
+            command=self._handle_llm_enable_toggle,
+            theme=self.theme,
+            width=CHECKBOX_COMPACT_SIZE,
+            checkbox_width=CHECKBOX_COMPACT_SIZE,
+            checkbox_height=CHECKBOX_COMPACT_SIZE,
+        )
+        self._llm_enable_cb.pack(side="left", padx=gap)
+        create_tooltip(self._llm_enable_cb, "Использовать LLM-перевод", theme=self.theme)
+
+        self._status_badges["llm"] = ctk.CTkLabel(
+            header_controls,
+            text=_TAB_KEYS["llm"],
+            font=ui_font(),
+            text_color=self._colors["text_muted"],
+        )
+        self._status_badges["llm"].pack(side="left")
 
         tab_row = ctk.CTkFrame(inner, height=PANEL_TAB_ROW_HEIGHT, fg_color="transparent")
         tab_row.grid(row=1, column=0, sticky="ew")
@@ -148,10 +176,14 @@ class TranslationTabs(CardFrame):
         btn_inner.pack(fill="both", expand=True)
 
         self.copy_btn = ghost_button(btn_inner, "Копировать", self.copy_active, theme=self.theme, width=100)
-        self.copy_btn.pack(side="left")
-        ghost_button(btn_inner, "Очистить", self.clear_active, theme=self.theme, width=90).pack(side="left")
+        self.copy_btn.pack(side="left", padx=(0, BUTTON_GAP))
+        ghost_button(btn_inner, "Очистить", self.clear_active, theme=self.theme, width=90).pack(
+            side="left", padx=(0, BUTTON_GAP)
+        )
         for btn_text, btn_command in self.extra_buttons:
-            ghost_button(btn_inner, btn_text, btn_command, theme=self.theme, width=120).pack(side="left")
+            ghost_button(btn_inner, btn_text, btn_command, theme=self.theme, width=120).pack(
+                side="left", padx=(0, BUTTON_GAP)
+            )
 
         self._select_tab(self._active_tab)
 
@@ -256,7 +288,20 @@ class TranslationTabs(CardFrame):
             except Exception:
                 pass
 
+    def _handle_llm_enable_toggle(self) -> None:
+        if self._suppress_llm_enable_cb:
+            return
+        enabled = bool(self._llm_enable_var.get())
+        if self._on_llm_enabled_changed:
+            self._on_llm_enabled_changed(enabled)
+
     def set_llm_enabled(self, enabled: bool) -> None:
+        self._suppress_llm_enable_cb = True
+        try:
+            self._llm_enable_var.set(enabled)
+        finally:
+            self._suppress_llm_enable_cb = False
+
         if enabled and not self._llm_enabled:
             self._register_tab("llm")
             self._llm_box = self._create_text_widget(self.text_host)
@@ -286,11 +331,11 @@ class TranslationTabs(CardFrame):
         badge = self._status_badges.get(engine)
         if badge is None:
             return
+        label = _TAB_KEYS.get(engine, engine)
         if not status or status not in _STATUS_DISPLAY:
-            badge.configure(text="")
+            badge.configure(text=label, text_color=self._colors["text_muted"])
             return
         symbol, kind = _STATUS_DISPLAY[status]
-        label = _TAB_KEYS.get(engine, engine)
         badge.configure(
             text=f"{label} {symbol}",
             text_color=get_status_color(self.theme, kind),

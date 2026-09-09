@@ -7,7 +7,14 @@ from typing import Dict, List
 import customtkinter as ctk
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.layout_config import BTN_HEIGHT_SM, BUTTON_GAP, COMBO_WIDTH, UI_FONT_FAMILY, get_combobox_kwargs
+from argos_translator.ui.layout_config import (
+    BTN_HEIGHT_SM,
+    BUTTON_GAP,
+    COMBO_WIDTH,
+    LABEL_FONT_SIZE,
+    UI_FONT_FAMILY,
+    get_combobox_kwargs,
+)
 from argos_translator.ui.themes import ThemeName, get_color_theme
 from argos_translator.ui.tooltip import create_tooltip
 from argos_translator.ui.widgets import accent_button, TransparentFrame
@@ -31,7 +38,7 @@ class CompactLanguageSelector(TransparentFrame):
 
     def _create_widgets(self) -> None:
         colors = self._colors
-        label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=14)
+        label_font = ctk.CTkFont(family=UI_FONT_FAMILY, size=LABEL_FONT_SIZE)
         combo_kw = get_combobox_kwargs(self.theme)
 
         self.grid_columnconfigure(0, weight=1)
@@ -58,9 +65,9 @@ class CompactLanguageSelector(TransparentFrame):
             text="⇄",
             command=self.swap_languages,
             theme=self.theme,
-            width=36,
+            width=40,
             height=BTN_HEIGHT_SM,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=LABEL_FONT_SIZE),
         )
         self.btn_swap.grid(row=0, column=1, padx=(0, BUTTON_GAP))
         create_tooltip(self.btn_swap, "Поменять языки местами", theme=self.theme)

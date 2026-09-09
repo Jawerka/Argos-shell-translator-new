@@ -13,8 +13,11 @@ from argos_translator.config.constants import UIConfig
 from argos_translator.ui.editor_layout import EditorLayout
 from argos_translator.ui.font_scale import scaled_text_font, ui_font
 from argos_translator.ui.layout_config import (
+    BTN_ICON_WIDTH,
+    BUTTON_GAP,
     CARD_PADX,
     CARD_PADY,
+    HEADER_CONTROLS_GAP,
     PANEL_BUTTON_ROW_HEIGHT,
     PANEL_HEADER_HEIGHT,
     PANEL_TAB_ROW_HEIGHT,
@@ -97,9 +100,9 @@ class TextPanel(CardFrame):
                 "⤢",
                 self._on_editor_layout_toggle,
                 theme=self.theme,
-                width=32,
+                width=BTN_ICON_WIDTH,
             )
-            self._layout_btn.pack(side="left", padx=(0, 6))
+            self._layout_btn.pack(side="left", padx=(0, HEADER_CONTROLS_GAP))
             create_tooltip(self._layout_btn, "На всю ширину", theme=self.theme)
 
         if self._show_char_count:
@@ -147,15 +150,19 @@ class TextPanel(CardFrame):
 
         if self.editable:
             ghost_button(btn_inner, "Вставить", self.paste_from_clipboard, theme=self.theme, width=90).pack(
-                side="left"
+                side="left", padx=(0, BUTTON_GAP)
             )
             ghost_button(btn_inner, "Очистить", self.clear, theme=self.theme, width=90).pack(side="left")
         else:
             self.copy_btn = ghost_button(btn_inner, "Копировать", self.copy_to_clipboard, theme=self.theme, width=100)
-            self.copy_btn.pack(side="left")
-            ghost_button(btn_inner, "Очистить", self.clear, theme=self.theme, width=90).pack(side="left")
+            self.copy_btn.pack(side="left", padx=(0, BUTTON_GAP))
+            ghost_button(btn_inner, "Очистить", self.clear, theme=self.theme, width=90).pack(
+                side="left", padx=(0, BUTTON_GAP)
+            )
             for btn_text, btn_command in self.extra_buttons:
-                ghost_button(btn_inner, btn_text, btn_command, theme=self.theme, width=120).pack(side="left")
+                ghost_button(btn_inner, btn_text, btn_command, theme=self.theme, width=120).pack(
+                    side="left", padx=(0, BUTTON_GAP)
+                )
 
     def _schedule_char_count_update(self, _event: Optional[tk.Event] = None) -> None:
         if self._char_count_job:

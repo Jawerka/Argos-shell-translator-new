@@ -1,0 +1,105 @@
+/* Settings dialog */
+.settings-window {
+  max-width: 720px;
+  margin: 24px auto;
+  min-height: calc(100vh - 48px);
+}
+
+.settings-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 16px;
+}
+
+.settings-body {
+  display: grid;
+  grid-template-columns: var(--settings-sidebar-w) 1fr;
+  gap: var(--space-md);
+  flex: 1;
+  min-height: 420px;
+  padding: 10px;
+}
+
+.settings-sidebar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-btn {
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  height: var(--btn-h);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-sm);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-nav-btn:hover {
+  background: var(--accent);
+}
+
+.settings-nav-btn.is-active {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+.settings-content {
+  overflow: auto;
+  padding: var(--space-md);
+}
+
+.settings-section {
+  display: none;
+}
+
+.settings-section.is-visible {
+  display: block;
+}
+
+.settings-section h2 {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-ui);
+}
+
+.settings-intro {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-sm) var(--space-md);
+  align-items: center;
+}
+
+.form-grid .span-2 {
+  grid-column: 1 / -1;
+}
+
+.form-actions-inline {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  flex-direction: column;
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0 0;
+}
+
+.warning-text {
+  color: var(--text-warning);
+}

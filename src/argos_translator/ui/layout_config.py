@@ -4,21 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from argos_translator.ui.themes import Spacing, get_color_theme
+from argos_translator.ui.themes import get_color_theme
 
 
 @dataclass(frozen=True)
 class UIStyle:
-    """Дизайн-токены интерфейса (фаза 10)."""
+    """Дизайн-токены интерфейса (ui-mockups tokens.css)."""
 
     radius_card: int = 0
-    radius_control: int = 8
+    radius_control: int = 3
     border: int = 1
-    header_h: int = 28
-    toolbar_h: int = 52
-    button_h: int = 34
-    panel_pad: int = 8
-    section_gap: int = 12
+    header_h: int = 30
+    toolbar_h: int = 50
+    button_h: int = 30
+    panel_pad: int = 10
+    section_gap: int = 10
 
 
 STYLE = UIStyle()
@@ -28,33 +28,38 @@ CORNER_RADIUS = STYLE.radius_card
 RADIUS_CARD = STYLE.radius_card
 RADIUS_CONTROL = STYLE.radius_control
 
-WINDOW_PADX = Spacing.SM
-WINDOW_PADY = Spacing.SM
-CARD_PADX = Spacing.SM + 2
-CARD_PADY = Spacing.SM
-ELEMENT_PADX = Spacing.SM
-ELEMENT_PADY = Spacing.SM
-ELEMENT_GAP = Spacing.SM
-BUTTON_GAP = Spacing.XS + 2
+# Макет: все отступы 10px
+_SPACE = 10
+WINDOW_PADX = _SPACE
+WINDOW_PADY = _SPACE
+CARD_PADX = _SPACE
+CARD_PADY = _SPACE
+ELEMENT_PADX = _SPACE
+ELEMENT_PADY = _SPACE
+ELEMENT_GAP = _SPACE
+BUTTON_GAP = 6
 SECTION_GAP = STYLE.section_gap
 PANEL_PAD = STYLE.panel_pad
 
 BTN_HEIGHT = STYLE.button_h
 BTN_HEIGHT_SM = 30
-BTN_FONT_SIZE = 14
+BTN_FONT_SIZE = 13
 BTN_ICON_FONT_SIZE = 16
-TEXT_FONT_SIZE = 12
+BTN_ICON_WIDTH = 40
+CHECKBOX_COMPACT_SIZE = 16
+HEADER_CONTROLS_GAP = 4
+TEXT_FONT_SIZE = 14
 TEXT_FONT_FAMILY = "Consolas"
 UI_FONT_FAMILY = "Segoe UI"
-LABEL_FONT_SIZE = 14
-TITLE_FONT_SIZE = 14
+LABEL_FONT_SIZE = 13
+TITLE_FONT_SIZE = 13
 
 PROGRESS_HEIGHT = 4
 PROGRESS_WIDTH = 72
 
 FOOTER_PADX = 4
 FOOTER_PADY = 2
-FOOTER_FONT_SIZE = 12
+FOOTER_FONT_SIZE = 13
 
 INPUT_HEIGHT = 36
 COMBO_WIDTH = 180
@@ -63,12 +68,18 @@ PANEL_HEADER_HEIGHT = STYLE.header_h
 PANEL_TAB_ROW_HEIGHT = 30
 PANEL_BUTTON_ROW_HEIGHT = BTN_HEIGHT
 TOOLBAR_HEIGHT = STYLE.toolbar_h
-SETTINGS_SIDEBAR_WIDTH = 168
+SETTINGS_SIDEBAR_WIDTH = 170
 SETTINGS_DIALOG_WIDTH = 720
 SETTINGS_DIALOG_HEIGHT = 560
 SETTINGS_DIALOG_MIN_WIDTH = 640
 SETTINGS_DIALOG_MIN_HEIGHT = 480
 EDITOR_GRID_ROW_TEXT = 2
+SETTINGS_FORM_LABEL_WIDTH = 160
+SETTINGS_INTRO_FONT_SIZE = 15
+SETTINGS_HR_MARGIN_BOTTOM = 25
+SETTINGS_ACTION_BTN_WIDTH = 170
+SETTINGS_FOOTER_BTN_WIDTH = 100
+SETTINGS_TITLE_FONT_SIZE = 16
 
 
 def get_card_kwargs(theme: str = "dark") -> dict:

@@ -62,6 +62,7 @@ class MainWindowCallbacks:
     on_src_modified: Callable[[Optional[tk.Event]], None]
     on_llm_stream_append: Callable[[], None]
     on_editor_layout_changed: Callable[[str], None]
+    on_llm_enabled_changed: Callable[[bool], None]
 
 
 @dataclass
@@ -183,7 +184,7 @@ def build_main_window(
     )
 
     translate_btn = primary_button(
-        toolbar_right, "Перевести", callbacks.on_translate, theme=theme, width=110
+        toolbar_right, "Перевести", callbacks.on_translate, theme=theme, width=100
     )
     translate_btn.pack(side="left", padx=(0, BUTTON_GAP))
     create_tooltip(translate_btn, "Перевести (Ctrl+Enter)", theme=theme)
@@ -235,6 +236,7 @@ def build_main_window(
         on_tab_changed=callbacks.on_tab_changed,
         on_llm_stream_append=callbacks.on_llm_stream_append,
         on_editor_layout_toggle=lambda: callbacks.on_editor_layout_changed("translation"),
+        on_llm_enabled_changed=callbacks.on_llm_enabled_changed,
         theme=theme,
         font_scale=font_scale,
     )

@@ -1,0 +1,31 @@
+/* Model picker dialog */
+.picker-backdrop {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: var(--space-lg);
+}
+
+.picker-dialog {
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-lg);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+}
+
+.picker-dialog h1 {
+  margin: 0 0 var(--space-md);
+  font-size: 16px;
+}
+
+.picker-dialog .field-select {
+  margin-bottom: var(--space-lg);
+}
+
+.picker-actions {
+  display: flex;
+  justify-content: flex-end;
+}

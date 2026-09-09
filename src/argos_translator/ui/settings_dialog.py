@@ -34,16 +34,29 @@ from argos_translator.ui.layout_config import (
     INPUT_HEIGHT,
     RADIUS_CONTROL,
     SECTION_GAP,
+    SETTINGS_ACTION_BTN_WIDTH,
     SETTINGS_DIALOG_HEIGHT,
     SETTINGS_DIALOG_MIN_HEIGHT,
     SETTINGS_DIALOG_MIN_WIDTH,
     SETTINGS_DIALOG_WIDTH,
+    SETTINGS_FOOTER_BTN_WIDTH,
+    SETTINGS_FORM_LABEL_WIDTH,
+    SETTINGS_HR_MARGIN_BOTTOM,
+    SETTINGS_INTRO_FONT_SIZE,
     SETTINGS_SIDEBAR_WIDTH,
-    Spacing,
+    SETTINGS_TITLE_FONT_SIZE,
 )
 from argos_translator.ui.themes import ThemeName, apply_theme, get_color_theme, setup_theme
 from argos_translator.ui.window_state import WindowStateManager
-from argos_translator.ui.widgets import accent_button, card_frame, ghost_button, muted_label, primary_button, transparent_frame
+from argos_translator.ui.widgets import (
+    accent_button,
+    card_frame,
+    ghost_button,
+    muted_label,
+    primary_button,
+    separator,
+    transparent_frame,
+)
 from argos_translator.utils.imports import ARGOS_MODULE_STATUS, ImportStatus
 
 logger = logging.getLogger("ArgosStreaming")
@@ -51,11 +64,11 @@ logger = logging.getLogger("ArgosStreaming")
 _SETTINGS_SECTIONS: list[tuple[str, str, str]] = [
     ("appearance", "Внешний вид", "Тема, масштаб текста и прозрачность окна."),
     ("translation", "Перевод", "Streaming, задержки debounce и кэш Argos."),
-    ("llm", "LLM", "Провайдер, модель и системный промпт."),
+    ("llm", "LLM", "OpenAI-compatible API: LOCAL, OpenRouter или Custom."),
     ("files", "Файлы", "Кодировка, суффиксы и лимиты файлов."),
-    ("argos", "Argos", "Офлайн-модели, bundle и папка packages."),
+    ("argos", "Argos", "Офлайн-модели Argos, установка из bundle и папка packages."),
     ("behavior", "Поведение", "Трей, горячие клавиши и clipboard."),
-    ("about", "О программе", "Версия, пути конфигурации и лог."),
+    ("about", "О программе", "Версия, статус движков и пути к конфигурации."),
 ]
 
 
@@ -150,7 +163,16 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _build_ui(self) -> None:
         main = transparent_frame(self)
-        main.pack(fill="both", expand=True, padx=Spacing.LG, pady=Spacing.LG)
+        main.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self._title_label = ctk.CTkLabel(
+            main,
+            text="Настройки",
+            font=ui_font(size=SETTINGS_TITLE_FONT_SIZE),
+            text_color=self._colors["text_primary"],
+            anchor="w",
+        )
+        self._title_label.pack(anchor="w", pady=(0, SECTION_GAP))
 
         card = card_frame(main, theme=self.theme)
         card.pack(fill="both", expand=True)
@@ -210,12 +232,20 @@ class SettingsDialog(ctk.CTkToplevel):
         self._select_section("appearance")
 
         btn_frame = transparent_frame(main)
-        btn_frame.pack(fill="x", pady=(Spacing.MD, 0))
-        accent_button(btn_frame, "Отмена", self._cancel, theme=self.theme, width=100).pack(side="right")
-        primary_button(btn_frame, "ОК", self._ok, theme=self.theme, width=100).pack(side="right", padx=(8, 0))
-        accent_button(btn_frame, "Применить", self._apply, theme=self.theme, width=110).pack(
-            side="right", padx=(8, 0)
+        btn_frame.pack(fill="x", pady=(10, 0))
+        footer_w = SETTINGS_FOOTER_BTN_WIDTH
+        self._footer_cancel = accent_button(
+            btn_frame, "Отмена", self._cancel, theme=self.theme, width=footer_w,
         )
+        self._footer_cancel.pack(side="right")
+        self._footer_apply = accent_button(
+            btn_frame, "Применить", self._apply, theme=self.theme, width=footer_w,
+        )
+        self._footer_apply.pack(side="right", padx=(10, 0))
+        self._footer_ok = primary_button(
+            btn_frame, "ОК", self._ok, theme=self.theme, width=footer_w,
+        )
+        self._footer_ok.pack(side="right", padx=(10, 0))
 
     def _select_section(self, key: str) -> None:
         colors = self._colors
@@ -255,18 +285,44 @@ class SettingsDialog(ctk.CTkToplevel):
         return inner
 
     def _section_intro(self, parent: ctk.CTkFrame, text: str, row: int = 0) -> int:
-        muted_label(parent, text, theme=self.theme, wraplength=460).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(0, SECTION_GAP)
+        self._make_intro_label(parent, text).grid(
+            row=row, column=0, columnspan=2, sticky="ew",
         )
-        return row + 1
+        separator(parent, theme=self.theme).grid(
+            row=row + 1,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(SECTION_GAP, SETTINGS_HR_MARGIN_BOTTOM),
+        )
+        return row + 2
+
+    def _section_intro_pack(self, parent: ctk.CTkFrame, text: str) -> None:
+        self._make_intro_label(parent, text).pack(anchor="w", fill="x")
+        separator(parent, theme=self.theme).pack(
+            fill="x", pady=(SECTION_GAP, SETTINGS_HR_MARGIN_BOTTOM),
+        )
+
+    def _make_intro_label(self, parent: ctk.CTkFrame, text: str) -> ctk.CTkLabel:
+        return ctk.CTkLabel(
+            parent,
+            text=text,
+            font=ui_font(size=SETTINGS_INTRO_FONT_SIZE),
+            text_color=self._colors["text_muted"],
+            wraplength=460,
+            anchor="w",
+            justify="left",
+        )
 
     def _form_row(self, parent, label: str, widget, row: int) -> None:
+        parent.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         ctk.CTkLabel(
             parent,
             text=label,
             font=ui_font(),
             text_color=self._colors["text_primary"],
             anchor="w",
+            width=SETTINGS_FORM_LABEL_WIDTH,
         ).grid(row=row, column=0, sticky="w", pady=6, padx=(0, 12))
         widget.grid(row=row, column=1, sticky="ew", pady=6)
 
@@ -301,9 +357,9 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _build_appearance_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["appearance"])
+        frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         frame.grid_columnconfigure(1, weight=1)
-        self._section_intro(frame, "Тема, масштаб текста и прозрачность окна.")
-        row = 1
+        row = self._section_intro(frame, "Тема, масштаб текста и прозрачность окна.")
 
         self.var_theme = tk.StringVar(value=self.settings.theme)
         theme_combo = self._combo(frame, ["dark", "light"], self.var_theme)
@@ -368,14 +424,14 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _build_translation_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["translation"])
+        frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         frame.grid_columnconfigure(1, weight=1)
-        self._section_intro(frame, "Streaming, задержки debounce и кэш Argos.")
-        row = 1
+        row = self._section_intro(frame, "Streaming, задержки debounce и кэш Argos.")
 
         self.var_streaming = tk.BooleanVar(value=self.settings.streaming)
         ctk.CTkCheckBox(
             frame,
-            text="Потоковый перевод (streaming)",
+            text="Потоковый перевод",
             variable=self.var_streaming,
             fg_color=self._colors["primary"],
             hover_color=self._colors["primary_hover"],
@@ -432,17 +488,17 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _build_behavior_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["behavior"])
+        frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         frame.grid_columnconfigure(1, weight=1)
-        self._section_intro(frame, "Трей, горячие клавиши и поведение clipboard.")
-        row = 1
+        row = self._section_intro(frame, "Трей, горячие клавиши и clipboard.")
 
         self.var_close_action = tk.StringVar(value=self.settings.behavior.close_action)
-        self._form_row(frame, "При закрытии (X):", self._combo(frame, ["tray", "exit"], self.var_close_action), row)
+        self._form_row(frame, "При закрытии:", self._combo(frame, ["tray", "exit"], self.var_close_action), row)
         row += 1
 
         self.var_start_minimized = tk.BooleanVar(value=self.settings.behavior.start_minimized_to_tray)
         ctk.CTkCheckBox(
-            frame, text="Запуск свёрнутым в трей", variable=self.var_start_minimized,
+            frame, text="Запускать свёрнутым в трей", variable=self.var_start_minimized,
             fg_color=self._colors["primary"], hover_color=self._colors["primary_hover"],
             text_color=self._colors["text_primary"],
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=4)
@@ -450,7 +506,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.var_restore_clipboard = tk.BooleanVar(value=self.settings.behavior.restore_clipboard_after_capture)
         ctk.CTkCheckBox(
-            frame, text="Восстанавливать буфер после Ctrl+Shift+C", variable=self.var_restore_clipboard,
+            frame, text="Восстанавливать clipboard после захвата", variable=self.var_restore_clipboard,
             fg_color=self._colors["primary"], hover_color=self._colors["primary_hover"],
             text_color=self._colors["text_primary"],
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=4)
@@ -466,7 +522,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.var_global_hotkey = tk.StringVar(value=self.settings.behavior.global_hotkey)
         hotkey_entry = self._entry(frame, width=200)
-        self._form_row(frame, "Глобальная горячая клавиша:", hotkey_entry, row)
+        self._form_row(frame, "Глобальный хоткей:", hotkey_entry, row)
         hotkey_entry.configure(textvariable=self.var_global_hotkey)
 
         muted_label(
@@ -478,26 +534,26 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _build_files_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["files"])
+        frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         frame.grid_columnconfigure(1, weight=1)
-        self._section_intro(frame, "Кодировка, суффиксы и лимиты при работе с файлами.")
-        row = 1
+        row = self._section_intro(frame, "Кодировка, суффиксы и лимиты файлов.")
 
         self.var_output_encoding = tk.StringVar(value=self.settings.files.output_encoding)
         self._form_row(
-            frame, "Кодировка сохранения:",
+            frame, "Кодировка выхода:",
             self._combo(frame, ["same", "utf-8", "utf-8-sig"], self.var_output_encoding), row,
         )
         row += 1
 
         self.var_output_suffix = tk.StringVar(value=self.settings.files.output_suffix)
         suffix_entry = self._entry(frame)
-        self._form_row(frame, "Суффикс имени файла:", suffix_entry, row)
+        self._form_row(frame, "Суффикс файла:", suffix_entry, row)
         suffix_entry.configure(textvariable=self.var_output_suffix)
         row += 1
 
         self.var_max_file_mb = tk.StringVar(value=str(self.settings.files.max_file_size_mb))
         mb_entry = self._entry(frame, width=120)
-        self._form_row(frame, "Макс. размер файла (MB):", mb_entry, row)
+        self._form_row(frame, "Макс. размер (МБ):", mb_entry, row)
         mb_entry.configure(textvariable=self.var_max_file_mb)
         row += 1
 
@@ -518,19 +574,14 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.var_translate_code = tk.BooleanVar(value=self.settings.files.translate_code_blocks)
         ctk.CTkCheckBox(
-            frame, text="Переводить блоки кода Markdown (```…```)", variable=self.var_translate_code,
+            frame, text="Переводить блоки кода", variable=self.var_translate_code,
             fg_color=self._colors["primary"], hover_color=self._colors["primary_hover"],
             text_color=self._colors["text_primary"],
         ).grid(row=row + 2, column=0, columnspan=2, sticky="w", pady=4)
 
     def _build_argos_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["argos"])
-        muted_label(
-            frame,
-            "Офлайн-модели Argos, установка из bundle и папка packages.",
-            theme=self.theme,
-            wraplength=460,
-        ).pack(anchor="w", pady=(0, SECTION_GAP))
+        self._section_intro_pack(frame, "Офлайн-модели Argos, установка из bundle и папка packages.")
 
         self.var_bundle_on_start = tk.BooleanVar(value=self.settings.argos.bundle_models_on_start)
         ctk.CTkCheckBox(
@@ -557,20 +608,19 @@ class SettingsDialog(ctk.CTkToplevel):
         )
         self._packages_dir_label.pack(anchor="w", pady=8)
 
-        btn_row = transparent_frame(frame)
-        btn_row.pack(anchor="w", pady=4)
-        accent_button(btn_row, "Открыть папку", self._open_packages_dir, theme=self.theme, width=130).pack(
-            side="left"
+        btn_col = transparent_frame(frame)
+        btn_col.pack(anchor="w", pady=4)
+        action_w = SETTINGS_ACTION_BTN_WIDTH
+        accent_button(btn_col, "Открыть packages", self._open_packages_dir, theme=self.theme, width=action_w).pack(
+            anchor="w", pady=(0, 8)
         )
-        accent_button(btn_row, "Из bundle", self._install_bundle, theme=self.theme, width=100).pack(
-            side="left", padx=(8, 0)
+        accent_button(btn_col, "Установить bundle", self._install_bundle, theme=self.theme, width=action_w).pack(
+            anchor="w", pady=(0, 8)
         )
-        accent_button(btn_row, "Из файла…", self._install_model_file, theme=self.theme, width=100).pack(
-            side="left", padx=(8, 0)
+        accent_button(btn_col, "Установить .argosmodel", self._install_model_file, theme=self.theme, width=action_w).pack(
+            anchor="w", pady=(0, 8)
         )
-        accent_button(btn_row, "Список пар", self._show_model_pairs, theme=self.theme, width=100).pack(
-            side="left", padx=(8, 0)
-        )
+        accent_button(btn_col, "Список пар", self._show_model_pairs, theme=self.theme, width=action_w).pack(anchor="w")
 
         link = ctk.CTkLabel(
             frame,
@@ -595,12 +645,7 @@ class SettingsDialog(ctk.CTkToplevel):
         argos_ok = ARGOS_MODULE_STATUS == ImportStatus.SUCCESS
         llm_state = "включён" if self.settings.llm.enabled else "выключен"
 
-        muted_label(
-            frame,
-            "Версия приложения, статус движков и пути к конфигурации.",
-            theme=self.theme,
-            wraplength=460,
-        ).pack(anchor="w", pady=(0, SECTION_GAP))
+        self._section_intro_pack(frame, "Версия, статус движков и пути к конфигурации.")
 
         ctk.CTkLabel(
             frame,
@@ -617,13 +662,15 @@ class SettingsDialog(ctk.CTkToplevel):
                      text_color=self._colors["text_muted"], wraplength=480).pack(anchor="w")
         ctk.CTkLabel(frame, text=f"Лог: {log_cfg.log_file}", anchor="w", justify="left",
                      text_color=self._colors["text_muted"], wraplength=480).pack(anchor="w", pady=(0, 8))
-        accent_button(frame, "Открыть лог", self._open_log_file, theme=self.theme, width=120).pack(anchor="w")
+        accent_button(
+            frame, "Открыть лог", self._open_log_file, theme=self.theme, width=SETTINGS_ACTION_BTN_WIDTH,
+        ).pack(anchor="w")
 
     def _build_llm_tab(self) -> None:
         frame = self._wrap_content(self._section_hosts["llm"], scroll=True)
+        frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         frame.grid_columnconfigure(1, weight=1)
-        self._section_intro(frame, "OpenAI-compatible API: LOCAL, OpenRouter или Custom.")
-        row = 1
+        row = self._section_intro(frame, "OpenAI-compatible API: LOCAL, OpenRouter или Custom.")
 
         self.var_llm_enabled = tk.BooleanVar(value=self.settings.llm.enabled)
         ctk.CTkCheckBox(
@@ -636,6 +683,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.llm_fields_frame = transparent_frame(frame)
         self.llm_fields_frame.grid(row=row, column=0, columnspan=2, sticky="nsew")
+        self.llm_fields_frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         self.llm_fields_frame.grid_columnconfigure(1, weight=1)
         lf = self.llm_fields_frame
         lf_row = 0
@@ -674,12 +722,14 @@ class SettingsDialog(ctk.CTkToplevel):
         self._form_row(lf, "Модель:", self.entry_model, lf_row)
         lf_row += 1
 
-        btn_row = transparent_frame(lf)
-        btn_row.grid(row=lf_row, column=0, columnspan=2, sticky="w", pady=8)
-        accent_button(btn_row, "Проверить", self._test_connection, theme=self.theme, width=110).pack(side="left")
-        accent_button(btn_row, "Загрузить модели", self._load_models, theme=self.theme, width=140).pack(
-            side="left", padx=(8, 0)
-        )
+        btn_col = transparent_frame(lf)
+        btn_col.grid(row=lf_row, column=0, columnspan=2, sticky="w", pady=8)
+        accent_button(
+            btn_col, "Проверить", self._test_connection, theme=self.theme, width=SETTINGS_ACTION_BTN_WIDTH,
+        ).pack(anchor="w", pady=(0, 8))
+        accent_button(
+            btn_col, "Загрузить модели", self._load_models, theme=self.theme, width=SETTINGS_ACTION_BTN_WIDTH,
+        ).pack(anchor="w")
         lf_row += 1
 
         self.var_llm_advanced = tk.BooleanVar(value=False)
@@ -696,6 +746,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.llm_advanced_frame = transparent_frame(lf)
         self.llm_advanced_frame.grid(row=lf_row, column=0, columnspan=2, sticky="ew")
+        self.llm_advanced_frame.grid_columnconfigure(0, minsize=SETTINGS_FORM_LABEL_WIDTH)
         self.llm_advanced_frame.grid_columnconfigure(1, weight=1)
         self.llm_advanced_frame.grid_remove()
 
@@ -955,15 +1006,25 @@ class SettingsDialog(ctk.CTkToplevel):
             picker.transient(self)
             picker.grab_set()
             picker.configure(fg_color=self._colors["bg_primary"])
+            picker.geometry("440x140")
+            picker.minsize(360, 120)
+            picker.resizable(True, False)
+
+            body = transparent_frame(picker)
+            body.pack(fill="both", expand=True, padx=10, pady=10)
+
             var = tk.StringVar(value=models[0])
-            self._combo(picker, models, var, width=400).pack(padx=16, pady=16)
+            self._combo(body, models, var, width=400).pack(fill="x")
+
+            actions = transparent_frame(body)
+            actions.pack(fill="x", pady=(10, 0))
 
             def pick() -> None:
                 self.entry_model.delete(0, "end")
                 self.entry_model.insert(0, var.get())
                 picker.destroy()
 
-            primary_button(picker, "Выбрать", pick, theme=self.theme).pack(pady=(0, 16))
+            primary_button(actions, "Выбрать", pick, theme=self.theme, width=100).pack(side="right")
         except Exception as exc:
             messagebox.showerror("LLM", f"Ошибка: {exc}", parent=self)
 

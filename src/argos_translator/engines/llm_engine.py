@@ -65,6 +65,17 @@ def current_api_key(llm: LLMSettings) -> str:
     return (llm.api_keys.get(llm.provider) or "").strip()
 
 
+def llm_config_error(llm: LLMSettings) -> Optional[str]:
+    """Проверка конфигурации до HTTP. None — конфиг достаточен для запроса."""
+    preset = get_provider(llm.provider)
+    base_url = resolve_base_url(llm.provider, llm.base_url, llm.provider_urls)
+    if not base_url:
+        return "Base URL не задан"
+    if preset.api_key_required and not current_api_key(llm):
+        return "API key обязателен для OpenRouter"
+    return None
+
+
 def build_system_prompt(
     llm: LLMSettings,
     from_code: str,

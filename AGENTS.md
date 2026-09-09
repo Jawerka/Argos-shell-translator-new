@@ -57,7 +57,7 @@ ArgosTranslator.spec            # release-сборка (console=False)
 - [`src/argos_translator/ui/text_panel.py`](src/argos_translator/ui/text_panel.py) — исходный текст
 - [`src/argos_translator/ui/translation_tabs.py`](src/argos_translator/ui/translation_tabs.py) — вкладки Argos/LLM, стриминг текста
 - [`src/argos_translator/ui/editor_layout.py`](src/argos_translator/ui/editor_layout.py) — однопанельный режим (`split` / `source` / `translation`)
-- [`src/argos_translator/ui/font_scale.py`](src/argos_translator/ui/font_scale.py) — `ui_font()` (14pt UI), `scaled_text_font()` (только поля ввода, до 200%)
+- [`src/argos_translator/ui/font_scale.py`](src/argos_translator/ui/font_scale.py) — `ui_font()` (13pt UI), `scaled_text_font()` (только поля ввода, до 200%)
 - [`src/argos_translator/ui/themes.py`](src/argos_translator/ui/themes.py) — палитра; `text_editor` — цвет текста в редакторах
 
 ### Логика приложения
@@ -84,7 +84,7 @@ ArgosTranslator.spec            # release-сборка (console=False)
 ## Соглашения при разработке
 
 1. **Минимальный diff** — не рефакторить несвязанный код; UI на CustomTkinter, не веб.
-2. **UI-шрифт** — фиксированный 14pt (`ui_font()`); масштаб слайдера влияет только на `CTkTextbox` в панелях.
+2. **UI-шрифт** — фиксированный 13pt (`ui_font()`); масштаб слайдера влияет только на `CTkTextbox` в панелях.
 3. **Обновление текста перевода** — для LLM-стриминга использовать `begin_llm_stream` / `append_llm_stream_text` / `end_llm_stream`, не полный `delete+insert` на каждый токен.
 4. **Потокобезопасность** — обновления UI только из главного потока (`root.after(0, ...)`).
 5. **Тесты** — добавлять в `tests/`; UI-тесты с фикстурой `ctk_root` из [`tests/conftest.py`](tests/conftest.py). Маркер `integration` — тесты с реальными моделями Argos/LLM.

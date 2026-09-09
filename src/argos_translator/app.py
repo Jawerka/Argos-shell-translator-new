@@ -26,7 +26,7 @@ from argos_translator.config.constants import (
 from argos_translator.config.paths import get_resource_path, get_settings_path
 from argos_translator.config.settings import AppSettings, load_settings, save_settings
 from argos_translator.engines.argos_engine import TranslateEngine
-from argos_translator.engines.llm_engine import translate_stream
+from argos_translator.engines.llm_engine import llm_config_error, translate_stream
 from argos_translator.logging_setup import LoggingConfig
 from argos_translator.services.clipboard import capture_selection_text
 from argos_translator.services.document_io import (
@@ -255,6 +255,7 @@ class TranslatorApp:
             on_src_modified=self._on_src_modified,
             on_llm_stream_append=self._update_paragraph_offsets,
             on_editor_layout_changed=self._on_editor_layout_changed,
+            on_llm_enabled_changed=self._apply_llm_enabled,
         )
         view = build_main_window(
             self.root, self.cfg, self.settings, self.languages, callbacks
@@ -379,14 +380,21 @@ class TranslatorApp:
             )
 
             if self.settings.llm.enabled:
-                if self.llm_debounce_job:
-                    try:
-                        self.root.after_cancel(self.llm_debounce_job)
-                    except Exception:
-                        pass
-                self.llm_debounce_job = self.root.after(
-                    llm_debounce_ms, self._run_llm_only
-                )
+                cfg_err = llm_config_error(self.settings.llm)
+                if cfg_err:
+                    self.llm_status_text = (
+                        "LLM не настроена — укажите сервер в Настройках"
+                    )
+                    self._update_combined_status()
+                else:
+                    if self.llm_debounce_job:
+                        try:
+                            self.root.after_cancel(self.llm_debounce_job)
+                        except Exception:
+                            pass
+                    self.llm_debounce_job = self.root.after(
+                        llm_debounce_ms, self._run_llm_only
+                    )
 
     def _on_stream_toggle(self) -> None:
         """Обработчик переключения потокового режима."""
@@ -970,6 +978,43 @@ class TranslatorApp:
         except Exception as exc:
             logger.debug("Apply language settings failed: %s", exc)
 
+    def _apply_llm_enabled(self, enabled: bool) -> None:
+        """Включить/выключить LLM (шапка или настройки)."""
+        old = self.settings.llm.enabled
+        self.settings.llm.enabled = enabled
+        if hasattr(self, "translation_tabs"):
+            self.translation_tabs.set_llm_enabled(enabled)
+            if not enabled and self.settings.active_translation_tab == "llm":
+                self.settings.active_translation_tab = "argos"
+                self.translation_tabs.set_active_tab("argos")
+
+        if not enabled:
+            self.coord.signal_llm_restart()
+            self.coord.llm_active_job = None
+            self.llm_status_text = "LLM: отключена"
+            self._update_combined_status()
+        else:
+            cfg_err = llm_config_error(self.settings.llm)
+            if cfg_err:
+                self.llm_status_text = (
+                    "LLM не настроена — укажите сервер в Настройках"
+                )
+                if hasattr(self, "translation_tabs"):
+                    self.translation_tabs.set_tab_status("llm", "offline")
+                self._update_combined_status()
+            else:
+                self.llm_status_text = ""
+                self._update_combined_status()
+
+        self.llm_health.invalidate()
+        self._update_llm_indicator()
+        save_settings(self.settings)
+
+        if enabled and not old:
+            self.root.after(500, self._check_llm_health_startup)
+
+        logger.info("LLM enabled toggle: %s", enabled)
+
     def _open_settings(self) -> None:
         """Открыть диалог настроек."""
 
@@ -993,6 +1038,17 @@ class TranslatorApp:
                 self.translation_tabs.set_active_tab(self.settings.active_translation_tab)
             self.llm_health.invalidate()
             self._update_llm_indicator()
+            if self.settings.llm.enabled != old_llm:
+                if not self.settings.llm.enabled:
+                    self.coord.signal_llm_restart()
+                    self.coord.llm_active_job = None
+                    self.llm_status_text = "LLM: отключена"
+                    self._update_combined_status()
+                elif llm_config_error(self.settings.llm):
+                    self.llm_status_text = (
+                        "LLM не настроена — укажите сервер в Настройках"
+                    )
+                    self._update_combined_status()
             if self.settings.llm.enabled and not old_llm:
                 self.root.after(500, self._check_llm_health_startup)
             self._translation_cache = TranslationCache(
@@ -1247,6 +1303,17 @@ class TranslatorApp:
         file_type: Optional[str] = None,
     ) -> None:
         if not self.settings.llm.enabled:
+            return
+
+        cfg_err = llm_config_error(self.settings.llm)
+        if cfg_err:
+            msg = "[LLM не настроена]"
+            logger.info("LLM job %d: skipped (not configured: %s)", llm_job, cfg_err)
+            self.translation_tabs.set_llm_text(msg)
+            self.translation_tabs.set_tab_status("llm", "offline")
+            self.llm_status_text = "LLM не настроена — укажите сервер в Настройках"
+            self._update_combined_status()
+            self._update_llm_indicator()
             return
 
         status = self.llm_health.cached_status()

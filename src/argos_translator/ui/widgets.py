@@ -171,7 +171,9 @@ def themed_checkbox(
 
 def separator(master, theme: ThemeName = "dark") -> ctk.CTkFrame:
     colors = get_color_theme(theme)
-    return ctk.CTkFrame(master, height=1, fg_color=colors["border"], corner_radius=0)
+    frame = ctk.CTkFrame(master, height=1, fg_color=colors["border"], corner_radius=0)
+    frame.pack_propagate(False)
+    return frame
 
 
 def vertical_separator(master, theme: ThemeName = "dark", height: int = 28) -> ctk.CTkFrame:

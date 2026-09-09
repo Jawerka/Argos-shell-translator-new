@@ -21,8 +21,16 @@ from argos_translator.engines.llm_engine import (
     build_request_context,
     build_system_prompt,
     fetch_models,
+    llm_config_error,
     translate_stream,
 )
+
+
+def test_llm_config_error_none_when_ok() -> None:
+    llm = LLMSettings(enabled=True, provider="local", base_url="http://127.0.0.1:8080/v1")
+    assert llm_config_error(llm) is None
+
+
 def test_build_system_prompt_substitution() -> None:
     llm = LLMSettings(system_prompt="From {source_code} to {target_code}")
     result = build_system_prompt(llm, "en", "ru", {"en": "English", "ru": "Russian"})

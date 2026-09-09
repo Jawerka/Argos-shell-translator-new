@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argos Translate — выбор модели</title>
+  <!-- Правите HTML/CSS здесь, затем попросите перенести в CustomTkinter. -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shared.css">
+  <link rel="stylesheet" href="css/model_picker.css">
+</head>
+<body>
+  <div class="picker-backdrop" data-role="model-picker-backdrop">
+    <div class="picker-dialog card" data-role="model-picker">
+      <h1>Выберите модель</h1>
+      <select class="field-select" aria-label="Модель" data-role="model-list">
+        <option>qwen36-27b-mtp-q6k-2x5060ti</option>
+        <option>qwen38-cf-q4km</option>
+        <option>qwen38-hauhau-q4kp</option>
+      </select>
+      <div class="picker-actions">
+        <button type="button" class="btn btn-primary" data-role="model-pick">Выбрать</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

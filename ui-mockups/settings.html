@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argos Translate — настройки</title>
+  <!-- Правите HTML/CSS здесь, затем попросите перенести в CustomTkinter. -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shared.css">
+  <link rel="stylesheet" href="css/settings.css">
+</head>
+<body>
+  <div class="app-window settings-window" data-role="settings-window">
+    <h1 class="settings-title">Настройки</h1>
+
+    <div class="card settings-body">
+      <nav class="settings-sidebar" data-role="settings-sidebar">
+        <button type="button" class="settings-nav-btn is-active" data-section="appearance">Внешний вид</button>
+        <button type="button" class="settings-nav-btn" data-section="translation">Перевод</button>
+        <button type="button" class="settings-nav-btn" data-section="llm">LLM</button>
+        <button type="button" class="settings-nav-btn" data-section="files">Файлы</button>
+        <button type="button" class="settings-nav-btn" data-section="argos">Argos</button>
+        <button type="button" class="settings-nav-btn" data-section="behavior">Поведение</button>
+        <button type="button" class="settings-nav-btn" data-section="about">О программе</button>
+      </nav>
+
+      <div class="settings-content" data-role="settings-content">
+        <section class="settings-section is-visible" id="section-appearance" data-role="section-appearance">
+          <p class="settings-intro" style="font-size: 15px">Тема, масштаб текста и прозрачность окна.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-grid">
+            <label class="field-label" for="theme">Тема:</label>
+            <select id="theme" class="field-select">
+              <option>dark</option>
+              <option>light</option>
+            </select>
+            <label class="field-label" for="font-scale">Размер текста в полях:</label>
+            <input id="font-scale" class="field-input" type="range" min="100" max="200" value="100">
+            <label class="field-label" for="opacity">Прозрачность:</label>
+            <input id="opacity" class="field-input" type="range" min="30" max="100" value="100">
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-translation" data-role="section-translation">
+          <p class="settings-intro" style="font-size: 15px">Streaming, задержки debounce и кэш Argos.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-grid">
+            <label class="checkbox span-2"><input type="checkbox" checked> Потоковый перевод</label>
+            <label class="checkbox span-2"><input type="checkbox" checked> Синхронизация прокрутки</label>
+            <label class="field-label" for="deb-argos">Задержка Argos (мс):</label>
+            <input id="deb-argos" class="field-input" value="700">
+            <label class="field-label" for="deb-llm">Задержка LLM (мс):</label>
+            <input id="deb-llm" class="field-input" value="1200">
+            <label class="checkbox span-2"><input type="checkbox"> Кэш переводов Argos (LRU, сессия)</label>
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-llm" data-role="section-llm">
+          <p class="settings-intro" style="font-size: 15px">OpenAI-compatible API: LOCAL, OpenRouter или Custom.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-grid">
+            <label class="checkbox span-2" data-role="llm-enabled-setting">
+              <input type="checkbox" checked> Использовать LLM-перевод
+            </label>
+            <label class="field-label" for="provider">Провайдер:</label>
+            <select id="provider" class="field-select">
+              <option>LOCAL</option>
+              <option>OpenRouter</option>
+              <option>Custom</option>
+            </select>
+            <label class="field-label" for="base-url">Base URL:</label>
+            <input id="base-url" class="field-input" value="http://192.168.88.37:8989/v1">
+            <label class="field-label" for="api-key">API key:</label>
+            <input id="api-key" class="field-input" type="password" disabled>
+            <span class="muted span-2">Не требуется для LOCAL</span>
+            <label class="field-label" for="model">Модель:</label>
+            <input id="model" class="field-input" value="qwen36-27b-mtp-q6k-2x5060ti">
+            <div class="form-actions-inline span-2">
+              <button type="button" class="btn btn-accent" style="width: 170px">Проверить</button>
+              <button type="button" class="btn btn-accent" style="width: 170px">Загрузить модели</button>
+            </div>
+            <label class="checkbox span-2"><input type="checkbox"> Дополнительные параметры (temperature, промпт)</label>
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-files" data-role="section-files">
+          <p class="settings-intro" style="font-size: 15px">Кодировка, суффиксы и лимиты файлов.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-grid">
+            <label class="field-label" for="encoding">Кодировка выхода:</label>
+            <select id="encoding" class="field-select">
+              <option>same</option>
+              <option>utf-8</option>
+            </select>
+            <label class="field-label" for="suffix">Суффикс файла:</label>
+            <input id="suffix" class="field-input" value="_translated">
+            <label class="field-label" for="max-mb">Макс. размер (МБ):</label>
+            <input id="max-mb" class="field-input" value="10">
+            <label class="checkbox span-2"><input type="checkbox"> Переводить блоки кода</label>
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-argos" data-role="section-argos">
+          <p class="settings-intro" style="font-size: 15px">Офлайн-модели Argos, установка из bundle и папка packages.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-actions-inline">
+            <button type="button" class="btn btn-accent" style="width: 170px">Открыть packages</button>
+            <button type="button" class="btn btn-accent" style="width: 170px">Установить bundle</button>
+            <button type="button" class="btn btn-accent" style="width: 170px">Установить .argosmodel</button>
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-behavior" data-role="section-behavior">
+          <p class="settings-intro" style="font-size: 15px">Трей, горячие клавиши и clipboard.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <div class="form-grid">
+            <label class="field-label" for="close-action">При закрытии:</label>
+            <select id="close-action" class="field-select">
+              <option>tray</option>
+              <option>quit</option>
+            </select>
+            <label class="field-label" for="hotkey">Глобальный хоткей:</label>
+            <input id="hotkey" class="field-input" value="ctrl+shift+c">
+            <label class="checkbox span-2"><input type="checkbox"> Запускать свёрнутым в трей</label>
+            <label class="checkbox span-2"><input type="checkbox" checked> Восстанавливать clipboard после захвата</label>
+          </div>
+        </section>
+
+        <section class="settings-section" id="section-about" data-role="section-about">
+          <p class="settings-intro" style="font-size: 15px">Версия, статус движков и пути к конфигурации.</p>
+          <hr style="margin: 0 0 25px 0;">
+          <p><strong>Argos Translate Streaming</strong></p>
+          <p>Argos: доступен</p>
+          <p>LLM: включён</p>
+          <p class="muted">Настройки: %USERPROFILE%\.argos_translate\settings.json</p>
+          <button type="button" class="btn btn-accent" style="width: 170px">Открыть лог</button>
+        </section>
+      </div>
+    </div>
+
+    <div class="settings-footer" data-role="settings-footer">
+      <button type="button" class="btn btn-primary" style="width: 100px">ОК</button>
+      <button type="button" class="btn btn-accent" style="width: 100px">Применить</button>
+      <button type="button" class="btn btn-accent" style="width: 100px">Отмена</button>
+    </div>
+  </div>
+
+  <script>
+    /* Только переключение секций в макете — не переносить в приложение. */
+    document.querySelectorAll(".settings-nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".settings-nav-btn").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        const key = btn.getAttribute("data-section");
+        document.querySelectorAll(".settings-section").forEach((s) => s.classList.remove("is-visible"));
+        const section = document.getElementById("section-" + key);
+        if (section) section.classList.add("is-visible");
+      });
+    });
+  </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ from argos_translator.ui.layout_config import TEXT_FONT_FAMILY, TEXT_FONT_SIZE, 
 FONT_SCALE_MIN = 0.85
 FONT_SCALE_MAX = 2.0
 FONT_SCALE_DEFAULT = 1.0
-UI_FONT_SIZE = 14
+UI_FONT_SIZE = 13
 
 
 def clamp_font_scale(value: float) -> float:

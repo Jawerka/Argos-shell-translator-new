@@ -19,6 +19,23 @@ def test_start_llm_translation_skips_when_offline(mock_translator_app) -> None:
         start_llm.assert_not_called()
 
 
+def test_start_llm_translation_skips_when_not_configured(mock_translator_app) -> None:
+    app = mock_translator_app
+    app.settings.llm.enabled = True
+    app.settings.llm.provider = "custom"
+    app.settings.llm.base_url = ""
+    app.settings.llm.provider_urls = {"custom": ""}
+
+    with patch.object(app.coord, "start_llm") as start_llm:
+        TranslatorApp._start_llm_translation(app, 1, "text", "en", "ru")
+        start_llm.assert_not_called()
+
+    msg = app.translation_tabs.set_llm_text.call_args[0][0]
+    assert "не настроена" in msg.lower()
+    assert "не настроена" in app.llm_status_text.lower()
+    app.llm_health.cached_status.assert_not_called()
+
+
 def test_start_llm_translation_skips_when_busy(mock_translator_app) -> None:
     app = mock_translator_app
     app.settings.llm.enabled = True

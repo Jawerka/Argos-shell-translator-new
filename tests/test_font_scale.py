@@ -26,4 +26,4 @@ def test_scaled_text_font_grows_with_scale(ctk_root: ctk.CTk) -> None:
 
 def test_ui_font_fixed_size(ctk_root: ctk.CTk) -> None:
     font = ui_font()
-    assert font.cget("size") == 14
+    assert font.cget("size") == 13

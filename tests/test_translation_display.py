@@ -32,6 +32,38 @@ def test_tab_status_preserves_argos_text(ctk_root: ctk.CTk) -> None:
     assert tabs._argos_box.get("1.0", "end-1c") == "Argos result"
 
 
+def test_idle_badges_show_engine_names(ctk_root: ctk.CTk) -> None:
+    frame = ctk.CTkFrame(ctk_root, fg_color="transparent")
+    tabs = TranslationTabs(frame, cfg=UIConfig(), llm_enabled=True)
+    tabs.update_idletasks()
+    assert tabs._status_badges["argos"].cget("text") == "Argos"
+    assert tabs._status_badges["llm"].cget("text") == "LLM"
+    tabs.set_tab_status("argos", "done")
+    assert tabs._status_badges["argos"].cget("text") == "Argos ✓"
+    tabs.set_tab_status("argos", None)
+    assert tabs._status_badges["argos"].cget("text") == "Argos"
+
+
+def test_header_controls_single_row(ctk_root: ctk.CTk) -> None:
+    frame = ctk.CTkFrame(ctk_root, fg_color="transparent")
+    tabs = TranslationTabs(
+        frame,
+        cfg=UIConfig(),
+        llm_enabled=True,
+        on_editor_layout_toggle=lambda: None,
+    )
+    tabs.update_idletasks()
+    children = tabs._header_controls.pack_slaves()
+    assert children == [
+        tabs._layout_btn,
+        tabs._status_badges["argos"],
+        tabs._llm_enable_cb,
+        tabs._status_badges["llm"],
+    ]
+    assert int(tabs._layout_btn.cget("width")) == 40
+    assert int(tabs._llm_enable_cb.cget("width")) == 16
+
+
 def test_llm_stream_incremental_append(ctk_root: ctk.CTk) -> None:
     frame = ctk.CTkFrame(ctk_root, fg_color="transparent")
     tabs = TranslationTabs(frame, cfg=UIConfig(), llm_enabled=True)

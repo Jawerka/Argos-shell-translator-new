@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argos Translate — главное окно</title>
+  <!-- Правите HTML/CSS здесь, затем попросите перенести в CustomTkinter. -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shared.css">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="app-window main-window" data-role="main-window">
+    <header class="card toolbar" data-role="toolbar">
+      <div class="toolbar-left">
+        <button type="button" class="btn btn-accent btn-icon" title="Файл" data-role="file-menu">📄</button>
+      </div>
+      <div class="toolbar-center" data-role="language-selector">
+        <select class="field-select lang-combo" aria-label="Откуда">
+          <option>EN - English</option>
+          <option>AUTO</option>
+        </select>
+        <button type="button" class="btn btn-accent btn-icon" title="Поменять языки">⇄</button>
+        <select class="field-select lang-combo" aria-label="Куда">
+          <option>RU - Русский</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button type="button" class="btn btn-ghost" data-role="more-menu">Ещё ▾</button>
+        <button type="button" class="btn btn-primary" data-role="translate">Перевести</button>
+        <button type="button" class="btn btn-ghost" data-role="cancel">Стоп</button>
+        <button type="button" class="btn btn-accent btn-icon" title="Настройки" data-role="settings">⚙</button>
+      </div>
+    </header>
+
+    <div class="panels" data-role="panels">
+      <section class="card panel" data-role="src-panel">
+        <div class="panel-header">
+          <span class="panel-header-left"></span>
+          <div class="panel-header-controls">
+            <button type="button" class="btn btn-ghost btn-icon" title="На всю ширину">⤢</button>
+            <span class="char-count" data-role="char-count">64 симв.</span>
+          </div>
+        </div>
+        <div class="tab-row"></div>
+        <div class="text-inset" data-role="src-text">Wasnt really worth the money, but I liked the art.</div>
+        <div class="panel-actions">
+          <button type="button" class="btn btn-ghost">Вставить</button>
+          <button type="button" class="btn btn-ghost">Очистить</button>
+        </div>
+      </section>
+
+      <section class="card panel" data-role="translation-panel">
+        <div class="panel-header" data-role="translation-header">
+          <div class="panel-header-controls">
+            <button type="button" class="btn btn-ghost btn-icon" title="На всю ширину">⤢</button>
+            <span class="status-badge is-done" data-role="argos-badge">Argos ✓</span>
+            <label class="checkbox checkbox-compact" data-role="llm-enable" title="Использовать LLM-перевод">
+              <input type="checkbox" checked aria-label="Использовать LLM-перевод">
+            </label>
+            <span class="status-badge is-done" data-role="llm-badge">LLM ✓</span>
+          </div>
+        </div>
+        <div class="tab-row" data-role="translation-tabs">
+          <div class="segmented">
+            <button type="button" class="is-active">Argos</button>
+            <button type="button">LLM</button>
+          </div>
+        </div>
+        <div class="text-inset" data-role="translation-text">Не стоило денег, но мне понравился арт.</div>
+        <div class="panel-actions">
+          <button type="button" class="btn btn-ghost">Копировать</button>
+          <button type="button" class="btn btn-ghost">Очистить</button>
+          <button type="button" class="btn btn-ghost">Копир. и скрыть</button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer-bar" data-role="status-bar">
+      <span class="status" data-role="status-text">Argos: 1/1 чанков (100%) · LLM: ✓ готово</span>
+      <span class="llm-indicator" data-role="llm-indicator">● LLM</span>
+    </footer>
+  </div>
+</body>
+</html>
