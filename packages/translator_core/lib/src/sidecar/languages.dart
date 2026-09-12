@@ -1,0 +1,17 @@
+/// Запасные названия языков (как Python `DefaultLanguages`).
+const defaultLanguageNames = <String, String>{
+  'en': 'English',
+  'ru': 'Русский',
+  'de': 'Deutsch',
+  'fr': 'Français',
+  'es': 'Español',
+  'it': 'Italiano',
+  'pt': 'Português',
+  'uk': 'Українська',
+  'zh': '中文',
+  'ja': '日本語',
+  'ko': '한국어',
+  'ar': 'العربية',
+  'hi': 'हिन्दी',
+  'tr': 'Türkçe',
+};

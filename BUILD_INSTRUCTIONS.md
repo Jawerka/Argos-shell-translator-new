@@ -1,4 +1,14 @@
-# Инструкция по сборке Argos Translate Streaming
+# Инструкция по сборке Argos Translate
+
+**Основной продукт:** Flutter + sidecar. Команда:
+
+```powershell
+scripts\build-windows.ps1
+```
+
+Результат: `dist/ArgosTranslate/` (`translator.exe`, `sidecar/argos_sidecar.exe`, не класть PyInstaller `_internal` в корень Flutter). Inno: `scripts/windows/argos-translate.iss` (`PrivilegesRequired=lowest`). Smoke: `python scripts/smoke_flutter_dist.py`.
+
+Ниже — **legacy CustomTkinter** portable onedir (`ArgosTranslator.spec`).
 
 ## Требования
 

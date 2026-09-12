@@ -10,11 +10,11 @@ from typing import Any, Dict, Optional
 
 from argos_translator.config.constants import UIConfig
 from argos_translator.config.paths import get_settings_path
-from argos_translator.ui.window_state import WindowState
+from argos_translator.config.window_state import WindowState
 
 logger = logging.getLogger("ArgosStreaming")
 
-CURRENT_SETTINGS_VERSION = 8
+CURRENT_SETTINGS_VERSION = 9
 
 
 @dataclass
@@ -23,7 +23,7 @@ class BehaviorSettings:
     start_minimized_to_tray: bool = False
     tray_click_action: str = "show"
     restore_clipboard_after_capture: bool = True
-    global_hotkey: str = "ctrl+shift+c"
+    global_hotkey: str = ""
     minimize_to_tray_on_copy_hide: bool = True
     translation_cache_enabled: bool = False
     translation_cache_size: int = 500
@@ -50,15 +50,16 @@ class ArgosSettings:
 class LLMSettings:
     enabled: bool = True
     provider: str = "local"
-    base_url: str = "http://192.168.88.41:8989/v1"
+    base_url: str = ""
     provider_urls: Dict[str, str] = field(
         default_factory=lambda: {
-            "local": "http://192.168.88.41:8989/v1",
+            "local": "",
             "openrouter": "https://openrouter.ai/api/v1",
             "custom": "",
         }
     )
     api_keys: Dict[str, str] = field(default_factory=lambda: {"openrouter": "", "custom": ""})
+    api_key_refs: Dict[str, str] = field(default_factory=lambda: {"openrouter": "", "custom": ""})
     model: str = ""
     auth_header: str = "auto"
     temperature: float = 0.3
@@ -79,6 +80,7 @@ class AppSettings:
     theme: str = "dark"
     opacity: float = 1.0
     font_scale: float = 1.0
+    editor_font: str = "system"
     editor_layout: str = "split"
     streaming: bool = True
     scroll_sync: bool = True
@@ -92,6 +94,7 @@ class AppSettings:
     argos: ArgosSettings = field(default_factory=ArgosSettings)
     behavior: BehaviorSettings = field(default_factory=BehaviorSettings)
     active_translation_tab: str = "argos"
+    first_run_done: bool = False
     geometry_legacy: Optional[str] = None
     settings_dialog_state: Optional[WindowState] = None
 
@@ -103,6 +106,7 @@ class AppSettings:
                 "opacity": self.opacity,
                 "theme": self.theme,
                 "font_scale": self.font_scale,
+                "editor_font": self.editor_font,
                 "editor_layout": self.editor_layout,
                 "geometry_legacy": self.geometry_legacy,
             },
@@ -123,6 +127,7 @@ class AppSettings:
                 "base_url": self.llm.base_url,
                 "provider_urls": self.llm.provider_urls,
                 "api_keys": self.llm.api_keys,
+                "api_key_refs": self.llm.api_key_refs,
                 "model": self.llm.model,
                 "auth_header": self.llm.auth_header,
                 "temperature": self.llm.temperature,
@@ -137,6 +142,7 @@ class AppSettings:
             },
             "ui": {
                 "active_translation_tab": self.active_translation_tab,
+                "first_run_done": self.first_run_done,
                 "settings_dialog": (
                     self.settings_dialog_state.to_dict() if self.settings_dialog_state else None
                 ),
@@ -197,12 +203,14 @@ class AppSettings:
         else:
             window_state = WindowState(width=cfg.width, height=cfg.height)
 
+        default_llm = LLMSettings()
         llm = LLMSettings(
             enabled=bool(llm_data.get("enabled", True)),
             provider=str(llm_data.get("provider", "local")),
-            base_url=str(llm_data.get("base_url", "http://192.168.88.41:8989/v1")),
-            provider_urls=llm_data.get("provider_urls") or LLMSettings().provider_urls,
+            base_url=str(llm_data.get("base_url", default_llm.base_url)),
+            provider_urls=llm_data.get("provider_urls") or default_llm.provider_urls,
             api_keys=_migrate_api_keys(llm_data),
+            api_key_refs=_migrate_api_key_refs(llm_data),
             model=str(llm_data.get("model", "")),
             auth_header=str(llm_data.get("auth_header", "auto")),
             temperature=float(llm_data.get("temperature", 0.3)),
@@ -243,7 +251,7 @@ class AppSettings:
             restore_clipboard_after_capture=bool(
                 behavior_data.get("restore_clipboard_after_capture", True)
             ),
-            global_hotkey=str(behavior_data.get("global_hotkey", "ctrl+shift+c")),
+            global_hotkey=str(behavior_data.get("global_hotkey", "")),
             minimize_to_tray_on_copy_hide=bool(behavior_data.get("minimize_to_tray_on_copy_hide", True)),
             translation_cache_enabled=bool(cache_enabled),
             translation_cache_size=cache_size,
@@ -258,12 +266,17 @@ class AppSettings:
         else:
             settings_dialog_state = None
 
+        editor_font = str(window.get("editor_font", "system"))
+        if editor_font not in {"system", "mono"}:
+            editor_font = "system"
+
         return cls(
             version=int(data.get("version", CURRENT_SETTINGS_VERSION)),
             window_state=window_state,
             theme=str(window.get("theme", "dark")),
             opacity=float(window.get("opacity", 1.0)),
             font_scale=float(window.get("font_scale", 1.0)),
+            editor_font=editor_font,
             editor_layout=str(window.get("editor_layout", "split")),
             streaming=bool(streaming),
             scroll_sync=bool(translation.get("scroll_sync", window.get("scroll_sync", True))),
@@ -277,6 +290,7 @@ class AppSettings:
             argos=argos,
             behavior=behavior,
             active_translation_tab=str(ui.get("active_translation_tab", "argos")),
+            first_run_done=bool(ui.get("first_run_done", False)),
             geometry_legacy=window.get("geometry"),
             settings_dialog_state=settings_dialog_state,
         )
@@ -291,6 +305,13 @@ def _migrate_api_keys(llm_data: Dict[str, Any]) -> Dict[str, str]:
     if legacy:
         result["openrouter"] = str(legacy)
     return result
+
+
+def _migrate_api_key_refs(llm_data: Dict[str, Any]) -> Dict[str, str]:
+    refs = llm_data.get("api_key_refs")
+    if isinstance(refs, dict):
+        return {str(k): str(v) for k, v in refs.items()}
+    return {"openrouter": "", "custom": ""}
 
 
 def migrate_settings(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -345,6 +366,15 @@ def migrate_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         llm.setdefault("file_chunk_max_chars", 3500)
         llm.setdefault("file_chunk_context", True)
         version = 8
+    if version < 9:
+        window = data.setdefault("window", {})
+        window.setdefault("editor_font", "system")
+        ui = data.setdefault("ui", {})
+        # Существующий файл — не показывать first-run.
+        ui["first_run_done"] = True
+        llm = data.setdefault("llm", {})
+        llm.setdefault("api_key_refs", {"openrouter": "", "custom": ""})
+        version = 9
     data["version"] = version
     return data
 

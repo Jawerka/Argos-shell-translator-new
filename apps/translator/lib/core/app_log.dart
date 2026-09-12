@@ -1,0 +1,58 @@
+import 'dart:io';
+
+import 'package:translator_core/translator_core.dart';
+
+class AppLog {
+  AppLog._();
+
+  static IOSink? _sink;
+
+  static Future<void> setup() async {
+    try {
+      final dir = ArgosPaths.logDir;
+      await dir.create(recursive: true);
+      _sink = ArgosPaths.appLogFile.openWrite(mode: FileMode.append);
+      info('startup begin');
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('File logging failed: $e\n$st');
+    }
+  }
+
+  static void info(String message) => _write('INFO', message);
+
+  static void warning(String message, [Object? error, StackTrace? st]) {
+    _write('WARN', message, error, st);
+  }
+
+  static void error(String message, [Object? err, StackTrace? st]) {
+    _write('ERROR', message, err, st);
+  }
+
+  static void _write(
+    String level,
+    String message, [
+    Object? error,
+    StackTrace? st,
+  ]) {
+    final line = StringBuffer(
+      '${DateTime.now().toIso8601String()} [$level] $message',
+    );
+    if (error != null) {
+      line.write(' $error');
+    }
+    if (st != null) {
+      line.write('\n$st');
+    }
+    final text = line.toString();
+    _sink?.writeln(text);
+    // ignore: avoid_print
+    print(text);
+  }
+
+  static Future<void> close() async {
+    await _sink?.flush();
+    await _sink?.close();
+    _sink = null;
+  }
+}

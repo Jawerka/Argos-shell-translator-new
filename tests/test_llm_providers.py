@@ -22,9 +22,10 @@ def test_openrouter_requires_api_key() -> None:
     assert preset.cloud_warning is True
 
 
-def test_local_no_api_key_required() -> None:
+def test_local_default_url_empty() -> None:
     preset = get_provider("local")
-    assert preset.api_key_required is False
+    assert preset.default_base_url == ""
+    assert "192.168" not in resolve_base_url("local", "", {})
 
 
 def test_provider_id_from_label() -> None:

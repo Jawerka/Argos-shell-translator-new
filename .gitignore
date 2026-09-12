@@ -6,13 +6,10 @@ __pycache__/
 .Python
 venv/
 env/
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -21,6 +18,17 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+.fvm/flutter_sdk
 
 # IDE
 .vscode/
@@ -31,8 +39,16 @@ wheels/
 # Project specific
 argos_models/
 installers/
+dist/
 log/
 *.log
 .coverage
 htmlcov/
 .pytest_cache/
+coverage/
+lcov.info
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

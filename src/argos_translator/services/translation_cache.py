@@ -11,6 +11,11 @@ class TranslationCache:
         self.max_size = max(1, max_size)
         self._store: OrderedDict[Tuple[str, str, str], str] = OrderedDict()
 
+    def set_max_size(self, max_size: int) -> None:
+        self.max_size = max(1, int(max_size))
+        while len(self._store) > self.max_size:
+            self._store.popitem(last=False)
+
     def _key(self, text: str, from_code: str, to_code: str) -> Tuple[str, str, str]:
         return (from_code, to_code, text)
 

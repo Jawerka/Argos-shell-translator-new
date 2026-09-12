@@ -1,5 +1,9 @@
 # AGENTS.md — руководство для AI-агентов
 
+**Основной продукт (v1):** Flutter Windows UI (`apps/translator`) + Python sidecar (`python -m sidecar` / frozen `argos_sidecar.exe`). Контракт: [`docs/PRODUCT.md`](docs/PRODUCT.md). Запуск: `scripts/dev.ps1`. Сборка: `scripts/build-windows.ps1` (Flutter Release + sidecar в `{app}/sidecar/` + Inno). Не смешивать PyInstaller `_internal` с корнем Flutter.
+
+Ниже — **legacy CustomTkinter** (не развивать UI; `src/argos_translator` движки и pytest всё ещё нужны sidecar).
+
 Десктопный переводчик **Argos Translate Streaming**: CustomTkinter UI, офлайн Argos + опциональный LLM (OpenAI-compatible API). Основная платформа — **Windows**.
 
 ## Быстрый старт
@@ -21,20 +25,31 @@ python -m argos_translator       # то же через пакет
 
 | Задача | Команда |
 |--------|---------|
-| Unit-тесты (CI) | `pytest tests/ -q -m "not integration"` |
+| Flutter GUI | `scripts\dev.ps1` |
+| Flutter-тесты | `dart analyze --fatal-infos packages/translator_core`; `dart test` в `packages/translator_core`; `flutter analyze --fatal-infos` и `flutter test` в `apps/translator` |
+| Сборка Windows | `scripts\build-windows.ps1` → `dist/ArgosTranslate/` + Inno при наличии `iscc` |
+| Smoke Flutter dist | `python scripts\smoke_flutter_dist.py` |
+| Unit-тесты sidecar (CI) | `pytest tests/ -q -m "not integration"` |
 | Все тесты | `pytest tests/ -q` |
 | Линтер | `ruff check src tests` |
-| Проверка spec | `python scripts/verify_spec.py` |
-| Сборка EXE | `venv\Scripts\python.exe -m PyInstaller ArgosTranslator.spec --clean --noconfirm` |
-| Сборка (bat) | `scripts\build.bat` — нужен рабочий `venv`; при ошибке `pyinstaller` в PATH использовать `python -m PyInstaller` |
-| Smoke dist | `python scripts\smoke_dist.py` |
+| Проверка spec | `python scripts/verify_spec.py` (CTk + ArgosSidecar.spec) |
+| Legacy CTk EXE | `venv\Scripts\python.exe -m PyInstaller ArgosTranslator.spec --clean --noconfirm` |
+| Сборка (bat, CTk) | `scripts\build.bat` — нужен рабочий `venv` |
+| Smoke dist (CTk) | `python scripts\smoke_dist.py` |
 
-Результат сборки: `dist/ArgosTranslator/ArgosTranslator.exe`. После сборки скопировать `argos_models/*.argosmodel` в `dist/ArgosTranslator/argos_models/`.
+Результат Flutter-сборки: `dist/ArgosTranslate/translator.exe` + `sidecar/argos_sidecar.exe`. Legacy CTk: `dist/ArgosTranslator/ArgosTranslator.exe`.
 
 ## Структура репозитория
 
 ```
-main.py                         # entry point
+apps/translator/                # Flutter Windows (основной UI)
+packages/translator_core/       # settings v9, sidecar client, LLM SSE
+sidecar/                        # HTTP вокруг src/argos_translator
+sidecar_entry.py                # PyInstaller entry sidecar
+ArgosSidecar.spec               # frozen argos_sidecar (console=False)
+scripts/build-windows.ps1       # Flutter Release + sidecar + Inno
+scripts/windows/argos-translate.iss
+main.py                         # legacy CTk entry
 src/argos_translator/
   app.py                        # TranslatorApp — координатор UI, потоков, файлов
   bootstrap/runner.py           # DPI, проверки, mainloop
@@ -107,11 +122,11 @@ ArgosTranslator.spec            # release-сборка (console=False)
 
 - Лог: `log/app_debug.log` (dev) или `{exe_dir}/log/app_debug.log` (frozen)
 - Debug-сборка с консолью: `pyinstaller ArgosTranslator.debug.spec --clean --noconfirm`
-- LLM по умолчанию: `http://192.168.88.41:8989/v1` — для тестов нужен доступный сервер или моки в `tests/test_llm_engine.py`
+- LLM URL задаётся в настройках Flutter (пустой LOCAL по умолчанию); моки в `tests/test_llm_engine.py`
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`): Python 3.11/3.12, `pytest -m "not integration"`, coverage ≥80% для `engines`, `services`, `config`, `ruff check`.
+GitHub Actions (`.github/workflows/ci.yml`): Python 3.11/3.12, `pytest -m "not integration"`, coverage ≥80% для `engines`, `services`, `config`, `ruff check`; отдельный job: `dart analyze` / `dart test` / `flutter analyze` / `flutter test`.
 
 ## Чего избегать
 

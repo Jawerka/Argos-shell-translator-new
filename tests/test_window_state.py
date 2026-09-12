@@ -6,7 +6,8 @@ import customtkinter as ctk
 import pytest
 
 from argos_translator.config.constants import UIConfig
-from argos_translator.ui.window_state import WindowState, WindowStateManager
+from argos_translator.config.window_state import WindowState
+from argos_translator.ui.window_state import WindowStateManager
 
 
 def test_from_geometry_string() -> None:

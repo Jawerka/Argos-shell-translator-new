@@ -27,3 +27,14 @@ def test_cache_key_includes_language_pair() -> None:
     cache.put("text", "en", "ru", "RU")
     assert cache.get("text", "en", "de") is None
     assert cache.get("text", "en", "ru") == "RU"
+
+
+def test_cache_set_max_size_trims() -> None:
+    cache = TranslationCache(max_size=5)
+    for i in range(5):
+        cache.put(str(i), "en", "ru", str(i))
+    cache.set_max_size(2)
+    assert cache.max_size == 2
+    assert cache.get("0", "en", "ru") is None
+    assert cache.get("3", "en", "ru") == "3"
+    assert cache.get("4", "en", "ru") == "4"

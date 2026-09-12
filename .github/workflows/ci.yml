@@ -32,3 +32,32 @@ jobs:
 
       - name: Ruff (syntax / critical)
         run: ruff check src tests
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: stable
+          cache: true
+
+      - name: Workspace pub get
+        run: flutter pub get
+
+      - name: Analyze translator_core
+        run: dart analyze --fatal-infos packages/translator_core
+
+      - name: Test translator_core
+        working-directory: packages/translator_core
+        run: dart test
+
+      - name: Analyze Flutter app
+        working-directory: apps/translator
+        run: flutter analyze --fatal-infos
+
+      - name: Flutter tests
+        working-directory: apps/translator
+        run: flutter test

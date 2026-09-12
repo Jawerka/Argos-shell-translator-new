@@ -9,9 +9,16 @@ from argos_translator.app import TranslatorApp
 from argos_translator.services.llm_health import LLMStatus
 
 
+def _enable_configured_llm(app: TranslatorApp) -> None:
+    app.settings.llm.enabled = True
+    app.settings.llm.provider = "local"
+    app.settings.llm.base_url = "http://127.0.0.1:8080/v1"
+    app.settings.llm.provider_urls = {"local": "http://127.0.0.1:8080/v1"}
+
+
 def test_start_llm_translation_skips_when_offline(mock_translator_app) -> None:
     app = mock_translator_app
-    app.settings.llm.enabled = True
+    _enable_configured_llm(app)
     app.llm_health.cached_status.return_value = LLMStatus.OFFLINE
 
     with patch.object(app.coord, "start_llm") as start_llm:
@@ -38,7 +45,7 @@ def test_start_llm_translation_skips_when_not_configured(mock_translator_app) ->
 
 def test_start_llm_translation_skips_when_busy(mock_translator_app) -> None:
     app = mock_translator_app
-    app.settings.llm.enabled = True
+    _enable_configured_llm(app)
     app.llm_health.cached_status.return_value = LLMStatus.BUSY
 
     with patch.object(app.coord, "start_llm") as start_llm:
@@ -50,7 +57,7 @@ def test_start_llm_translation_skips_when_busy(mock_translator_app) -> None:
 
 def test_start_llm_translation_starts_worker_when_available(mock_translator_app) -> None:
     app = mock_translator_app
-    app.settings.llm.enabled = True
+    _enable_configured_llm(app)
     app.llm_health.cached_status.return_value = LLMStatus.AVAILABLE
     app.llm_translate_thread = None
     started = threading.Event()

@@ -1,0 +1,432 @@
+"""HTTP sidecar: health, detect, models, decode, translate NDJSON, cancel."""
+
+from __future__ import annotations
+
+import json
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Any, Iterator
+from unittest.mock import MagicMock
+
+import httpx
+import pytest
+
+from sidecar import __version__ as SIDECAR_VERSION
+from sidecar.__main__ import build_parser, main as sidecar_main
+from sidecar.jobs import ArgosJobRunner
+from sidecar.server import TOKEN_HEADER, create_server
+from argos_translator.services.translation_cache import TranslationCache
+from argos_translator.services.translation_coordinator import TranslationCoordinator
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+TOKEN = "test-sidecar-token"
+
+
+class FakeEngine:
+    def __init__(self, prefer_api: bool = True) -> None:
+        self.prefer_api = prefer_api
+        self.calls: list[tuple[str, str, str]] = []
+
+    def translate(self, text: str, from_code: str, to_code: str) -> str:
+        self.calls.append((text, from_code, to_code))
+        return f"{from_code}->{to_code}:{text}"
+
+
+class SlowEngine:
+    def __init__(self, prefer_api: bool = True, delay: float = 0.4) -> None:
+        self.prefer_api = prefer_api
+        self.started = threading.Event()
+        self.delay = delay
+
+    def translate(self, text: str, from_code: str, to_code: str) -> str:
+        self.started.set()
+        time.sleep(self.delay)
+        return f"slow:{text}"
+
+
+@pytest.fixture
+def sidecar_http(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address[:2]
+    base = f"http://{host}:{port}"
+    try:
+        yield base, TOKEN
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _headers(token: str | None = TOKEN) -> dict[str, str]:
+    if not token:
+        return {}
+    return {TOKEN_HEADER: token}
+
+
+def _ndjson_events(response: httpx.Response) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for line in response.iter_lines():
+        if not line:
+            continue
+        events.append(json.loads(line))
+    return events
+
+
+def test_ready_json_parses_and_writes_temp_file(capsys: pytest.CaptureFixture[str]) -> None:
+    from sidecar.__main__ import _ready, ready_file_path
+
+    path = ready_file_path()
+    try:
+        _ready(4242)
+        out = capsys.readouterr().out
+        line = out.strip().splitlines()[-1]
+        payload = json.loads(line)
+        assert payload == {"ok": True, "port": 4242}
+        assert json.loads(path.read_text(encoding="utf-8")) == payload
+    finally:
+        if path.exists():
+            path.unlink()
+
+
+def test_ready_when_stdout_none_still_writes_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sidecar.__main__ as sidecar_main_mod
+    from sidecar.__main__ import _ready, ready_file_path
+
+    path = ready_file_path()
+    monkeypatch.setattr(sidecar_main_mod.sys, "stdout", None)
+
+    def _fdopen_fail(*_args: object, **_kwargs: object) -> object:
+        raise OSError("no fd")
+
+    monkeypatch.setattr(sidecar_main_mod.os, "fdopen", _fdopen_fail)
+    try:
+        _ready(99)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["ok"] is True
+        assert payload["port"] == 99
+    finally:
+        if path.exists():
+            path.unlink()
+
+
+def test_help_exits_zero() -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--help"])
+    assert exc.value.code == 0
+
+
+def test_module_help_subprocess() -> None:
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "-m", "sidecar", "--help"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "127.0.0.1" in (result.stdout + result.stderr)
+
+
+def test_main_requires_token_and_loopback() -> None:
+    assert sidecar_main(["--host", "127.0.0.1"]) == 2
+    assert sidecar_main(["--host", "0.0.0.0", "--token", "abc"]) == 2
+
+
+def test_health_without_token(sidecar_http: tuple[str, str]) -> None:
+    base, _ = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        res = client.get(f"{base}/health")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["version"] == SIDECAR_VERSION
+
+
+def test_protected_routes_need_token(sidecar_http: tuple[str, str]) -> None:
+    base, _ = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        denied = client.get(f"{base}/v1/health")
+        ok = client.get(f"{base}/v1/health", headers=_headers())
+        bearer = client.get(
+            f"{base}/v1/languages",
+            headers={"Authorization": f"Bearer {TOKEN}"},
+        )
+    assert denied.status_code == 401
+    assert ok.status_code == 200
+    assert ok.json()["ok"] is True
+    assert bearer.status_code == 200
+    assert "en" in bearer.json()["languages"]
+
+
+def test_languages_and_models(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        langs = client.get(f"{base}/v1/languages", headers=_headers(token))
+        models = client.get(f"{base}/v1/models", headers=_headers(token))
+    assert langs.status_code == 200
+    assert langs.json()["languages"]["ru"]
+    assert models.status_code == 200
+    assert "pairs" in models.json()
+    assert "packages_dir" in models.json()
+
+
+def test_detect_auto(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        empty = client.post(f"{base}/v1/detect", headers=_headers(token), json={"text": ""})
+        ru = client.post(
+            f"{base}/v1/detect",
+            headers=_headers(token),
+            json={"text": "Привет"},
+        )
+    assert empty.json()["code"] == "en"
+    assert ru.json()["code"] == "ru"
+
+
+def test_files_decode(sidecar_http: tuple[str, str], tmp_path: Path) -> None:
+    base, token = sidecar_http
+    path = tmp_path / "note.txt"
+    path.write_text("Привет, мир", encoding="utf-8")
+    with httpx.Client(timeout=5) as client:
+        missing = client.post(
+            f"{base}/v1/files/decode",
+            headers=_headers(token),
+            json={},
+        )
+        ok = client.post(
+            f"{base}/v1/files/decode",
+            headers=_headers(token),
+            json={"path": str(path), "max_size_mb": 1},
+        )
+    assert missing.status_code == 400
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["text"] == "Привет, мир"
+    assert body["encoding"]
+    assert body["file_type"]
+
+
+def test_models_install_requires_path_or_bundle(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        res = client.post(
+            f"{base}/v1/models/install",
+            headers=_headers(token),
+            json={},
+        )
+    assert res.status_code == 400
+
+
+def test_models_install_bundle(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        res = client.post(
+            f"{base}/v1/models/install",
+            headers=_headers(token),
+            json={"bundle": True},
+        )
+    assert res.status_code == 200
+    body = res.json()
+    assert "installed" in body
+    assert "pairs" in body
+    assert isinstance(body["installed"], int)
+
+
+def test_models_install_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    model = tmp_path / "en_ru.argosmodel"
+    model.write_bytes(b"fake")
+    fake_models = MagicMock()
+    fake_models.install_from_path.return_value = True
+    fake_models.list_installed_pairs.return_value = ["en->ru"]
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: FakeEngine())
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    server.state.models = fake_models  # type: ignore[attr-defined]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        with httpx.Client(timeout=5) as client:
+            res = client.post(
+                f"http://127.0.0.1:{port}/v1/models/install",
+                headers=_headers(),
+                json={"path": str(model)},
+            )
+        assert res.status_code == 200
+        assert res.json()["installed"] == 1
+        fake_models.install_from_path.assert_called_once()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_translate_applies_packages_dir_from_body(
+    sidecar_http: tuple[str, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base, token = sidecar_http
+    applied: list[str] = []
+
+    def _fake_apply(packages_dir: str | None) -> None:
+        if packages_dir:
+            applied.append(packages_dir)
+
+    monkeypatch.setattr("sidecar.server._apply_packages_dir", _fake_apply)
+    packages = tmp_path / "custom_packages"
+    with httpx.Client(timeout=10) as client:
+        with client.stream(
+            "POST",
+            f"{base}/v1/translate",
+            headers=_headers(token),
+            json={
+                "text": "Hello.",
+                "from": "en",
+                "to": "ru",
+                "packages_dir": str(packages),
+            },
+        ) as res:
+            assert res.status_code == 200
+            events = _ndjson_events(res)
+    assert events[-1]["type"] == "done"
+    assert applied and applied[-1] == str(packages)
+
+
+def test_translate_ndjson_stream(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=10) as client:
+        with client.stream(
+            "POST",
+            f"{base}/v1/translate",
+            headers=_headers(token),
+            json={"text": "Hello world.", "from": "en", "to": "ru"},
+        ) as res:
+            assert res.status_code == 200
+            events = _ndjson_events(res)
+    types = [e["type"] for e in events]
+    assert types[0] == "start"
+    assert "chunk" in types
+    assert types[-1] == "done"
+    start = events[0]
+    assert start["from"] == "en"
+    assert start["to"] == "ru"
+    assert start["job_id"]
+    chunks = [e for e in events if e["type"] == "chunk"]
+    assert chunks[0]["text"].startswith("en->ru:")
+
+
+def test_translate_empty_is_done(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        with client.stream(
+            "POST",
+            f"{base}/v1/translate",
+            headers=_headers(token),
+            json={"text": "   ", "from": "en", "to": "ru"},
+        ) as res:
+            events = _ndjson_events(res)
+    assert [e["type"] for e in events] == ["start", "done"]
+
+
+def test_translate_unknown_path_404(sidecar_http: tuple[str, str]) -> None:
+    base, token = sidecar_http
+    with httpx.Client(timeout=5) as client:
+        res = client.get(f"{base}/v1/nope", headers=_headers(token))
+    assert res.status_code == 404
+
+
+def test_cancel_stops_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    slow = SlowEngine(delay=0.5)
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: slow)
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    base = f"http://127.0.0.1:{port}"
+    text = "First paragraph here.\n\nSecond paragraph there."
+    events: list[dict[str, Any]] = []
+    error: list[BaseException] = []
+
+    def _run_translate() -> None:
+        try:
+            with httpx.Client(timeout=10) as client:
+                with client.stream(
+                    "POST",
+                    f"{base}/v1/translate",
+                    headers=_headers(),
+                    json={"text": text, "from": "en", "to": "ru"},
+                ) as res:
+                    events.extend(_ndjson_events(res))
+        except BaseException as exc:  # noqa: BLE001
+            error.append(exc)
+
+    worker = threading.Thread(target=_run_translate)
+    worker.start()
+    assert slow.started.wait(timeout=5)
+    with httpx.Client(timeout=5) as client:
+        cancel = client.post(f"{base}/v1/cancel", headers=_headers(), json={})
+    assert cancel.status_code == 200
+    worker.join(timeout=8)
+    server.shutdown()
+    server.server_close()
+    assert not error
+    assert any(e["type"] == "cancelled" for e in events)
+
+
+def test_job_runner_detect_and_passthrough_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    assert runner.detect("Привет") == "ru"
+    events: list[dict[str, Any]] = []
+    status = runner.run_translate(
+        text="Hello.\n\n```\ncode\n```",
+        from_code="en",
+        to_code="ru",
+        translate_code_blocks=False,
+        emit=events.append,
+    )
+    assert status == "done"
+    assert events[0]["type"] == "start"
+    texts = [e["text"] for e in events if e["type"] == "chunk"]
+    assert any("code" in t for t in texts)
+    assert any(t.startswith("en->ru:") for t in texts)
+
+
+def test_translate_applies_cache_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address[:2]
+    base = f"http://{host}:{port}"
+    try:
+        with httpx.Client(timeout=10) as client:
+            with client.stream(
+                "POST",
+                f"{base}/v1/translate",
+                headers=_headers(),
+                json={
+                    "text": "Hello.",
+                    "from": "en",
+                    "to": "ru",
+                    "cache": True,
+                    "cache_size": 12,
+                },
+            ) as res:
+                assert res.status_code == 200
+                _ndjson_events(res)
+        assert server.state.cache.max_size == 12  # type: ignore[attr-defined]
+    finally:
+        server.shutdown()
+        server.server_close()
+

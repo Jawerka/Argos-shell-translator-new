@@ -20,7 +20,7 @@ PROVIDERS: Dict[str, LLMProviderPreset] = {
     "local": LLMProviderPreset(
         "local",
         "LOCAL",
-        "http://192.168.88.41:8989/v1",
+        "",
         False,
     ),
     "openrouter": LLMProviderPreset(

@@ -33,6 +33,30 @@ def test_frozen_uses_exe_dir_packages(monkeypatch, tmp_path: Path) -> None:
     assert result == exe.parent / "packages"
 
 
+def test_frozen_sidecar_packages_live_next_to_flutter_exe(
+    monkeypatch, tmp_path: Path
+) -> None:
+    app = tmp_path / "ArgosTranslate"
+    sidecar_dir = app / "sidecar"
+    sidecar_dir.mkdir(parents=True)
+    exe = sidecar_dir / "argos_sidecar.exe"
+    exe.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe))
+    assert get_argos_packages_dir(None) == app / "packages"
+
+
+def test_frozen_sidecar_log_dir_next_to_flutter_exe(monkeypatch, tmp_path: Path) -> None:
+    app = tmp_path / "ArgosTranslate"
+    sidecar_dir = app / "sidecar"
+    sidecar_dir.mkdir(parents=True)
+    exe = sidecar_dir / "argos_sidecar.exe"
+    exe.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe))
+    assert get_log_dir() == app / "log"
+
+
 def test_log_dir_dev_uses_project_log(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     monkeypatch.setattr(
@@ -40,6 +64,26 @@ def test_log_dir_dev_uses_project_log(tmp_path: Path, monkeypatch) -> None:
         lambda: tmp_path,
     )
     assert get_log_dir() == tmp_path / "log"
+
+
+def test_frozen_resource_looks_at_parent_of_sidecar_exe(tmp_path: Path, monkeypatch) -> None:
+    app = tmp_path / "ArgosTranslate"
+    sidecar_dir = app / "sidecar"
+    sidecar_dir.mkdir(parents=True)
+    exe = sidecar_dir / "argos_sidecar.exe"
+    exe.touch()
+    models = app / "argos_models"
+    models.mkdir()
+    (models / "en_ru.argosmodel").write_bytes(b"x")
+    meipass = tmp_path / "meipass"
+    meipass.mkdir()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe))
+    monkeypatch.setattr(
+        "argos_translator.config.paths.get_project_root",
+        lambda: meipass,
+    )
+    assert get_resource_path("argos_models") == models
 
 
 def test_resource_path_prefers_assets(tmp_path: Path, monkeypatch) -> None:

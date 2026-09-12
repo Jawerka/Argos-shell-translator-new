@@ -19,6 +19,18 @@ def get_exe_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent.parent
 
 
+def get_frozen_app_dir() -> Path:
+    """Корень установленного приложения.
+
+    Frozen sidecar лежит в ``{app}/sidecar/argos_sidecar.exe`` — пакеты и лог
+    держим рядом с Flutter EXE, не внутри onedir sidecar.
+    """
+    exe_dir = get_exe_dir()
+    if exe_dir.name.lower() == "sidecar":
+        return exe_dir.parent
+    return exe_dir
+
+
 def get_project_root() -> Path:
     """Корень проекта или PyInstaller bundle (_MEIPASS)."""
     if is_frozen() and hasattr(sys, "_MEIPASS"):
@@ -27,16 +39,21 @@ def get_project_root() -> Path:
 
 
 def get_log_dir() -> Path:
-    """Каталог логов: `{exe_dir}/log` (frozen) или `log/` в проекте."""
+    """Каталог логов: `{app}/log` (frozen) или `log/` в проекте."""
     if is_frozen():
-        return get_exe_dir() / "log"
+        return get_frozen_app_dir() / "log"
     return get_project_root() / "log"
 
 
 def get_resource_path(relative_path: str) -> Path:
     """Путь к ресурсу (ico, argos_models). Ищет assets/, _MEIPASS и exe_dir."""
     candidates: list[Path] = []
-    for root in (get_project_root(), get_exe_dir()):
+    roots = [get_project_root(), get_exe_dir()]
+    if is_frozen():
+        app_dir = get_frozen_app_dir()
+        if app_dir not in roots:
+            roots.append(app_dir)
+    for root in roots:
         if relative_path.startswith("assets/"):
             candidates.append(root / relative_path)
         else:
@@ -54,7 +71,7 @@ def get_argos_packages_dir(custom_dir: Optional[str] = None) -> Path:
 
     Приоритет:
     1. custom_dir из настроек
-    2. {exe_dir}/packages/ (frozen portable)
+    2. {app}/packages/ (frozen portable; Flutter: рядом с translator.exe)
     3. ~/.local/share/argos-translate/packages/
     4. %LOCALAPPDATA%/argos-translate/packages/ (Windows)
     5. ~/.argos-translate/packages/
@@ -63,8 +80,7 @@ def get_argos_packages_dir(custom_dir: Optional[str] = None) -> Path:
         return Path(custom_dir).expanduser()
 
     if getattr(sys, "frozen", False):
-        portable = Path(sys.executable).resolve().parent / "packages"
-        return portable
+        return get_frozen_app_dir() / "packages"
 
     linux_path = Path.home() / ".local" / "share" / "argos-translate" / "packages"
     if linux_path.exists():

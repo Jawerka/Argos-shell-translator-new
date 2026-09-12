@@ -5,10 +5,18 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from argos_translator.config.paths import get_argos_packages_dir, get_exe_dir, get_resource_path, is_frozen
-from argos_translator.config.settings import AppSettings
+from argos_translator.config.paths import (
+    get_argos_packages_dir,
+    get_frozen_app_dir,
+    get_resource_path,
+    is_frozen,
+)
 from argos_translator.services.model_manager import ModelManager
+
+if TYPE_CHECKING:
+    from argos_translator.config.settings import AppSettings
 
 logger = logging.getLogger("ArgosStreaming")
 
@@ -52,7 +60,7 @@ def bootstrap_frozen_models(settings: AppSettings) -> int:
 
     bundle = _resolve_bundle_dir()
     if not bundle.exists():
-        logger.warning("Frozen: bundle argos_models not found near %s", get_exe_dir())
+        logger.warning("Frozen: bundle argos_models not found near %s", get_frozen_app_dir())
         return 0
 
     installed = mgr.install_from_bundle(bundle)
@@ -64,7 +72,7 @@ def bootstrap_frozen_models(settings: AppSettings) -> int:
 def _resolve_bundle_dir() -> Path:
     for candidate in (
         get_resource_path("argos_models"),
-        get_exe_dir() / "argos_models",
+        get_frozen_app_dir() / "argos_models",
     ):
         if candidate.is_dir() and any(candidate.glob("*.argosmodel")):
             return candidate

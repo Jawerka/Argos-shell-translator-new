@@ -1,5 +1,7 @@
 # UI Baseline (v2.1 — structured flat)
 
+> Исторический контракт CustomTkinter. Для Flutter UI см. [`PRODUCT.md`](PRODUCT.md) и [`ui-mockups/`](../ui-mockups/).
+
 Описание интерфейса после фазы 10 UI Polish. Эталон палитры — UI-for-ytdlp.
 
 ## Макет

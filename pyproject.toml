@@ -31,7 +31,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-src = ["src", "tests"]
+src = ["src", "sidecar", "tests"]
 
 [tool.ruff.lint]
 select = ["E9", "F63", "F7", "F82"]
@@ -44,7 +44,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = [".", "src"]
 markers = [
     "integration: tests requiring installed Argos models or LLM server",
 ]

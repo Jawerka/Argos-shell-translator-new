@@ -64,3 +64,15 @@ def test_log_dir_frozen_beside_exe(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(sys, "executable", str(exe))
     assert get_log_dir() == tmp_path / "log"
     assert get_exe_dir() == tmp_path
+
+
+def test_log_dir_frozen_sidecar_uses_app_root(monkeypatch, tmp_path: Path) -> None:
+    app = tmp_path / "ArgosTranslate"
+    sidecar_dir = app / "sidecar"
+    sidecar_dir.mkdir(parents=True)
+    exe = sidecar_dir / "argos_sidecar.exe"
+    exe.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe))
+    assert get_log_dir() == app / "log"
+    assert get_exe_dir() == sidecar_dir

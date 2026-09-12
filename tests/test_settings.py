@@ -23,6 +23,10 @@ def test_default_settings_version() -> None:
     assert s.llm.enabled is True
     assert s.files.output_encoding == "same"
     assert s.argos.bundle_models_on_start is True
+    assert s.llm.base_url == ""
+    assert s.behavior.global_hotkey == ""
+    assert s.first_run_done is False
+    assert s.editor_font == "system"
 
 
 def test_migrate_v1_geometry(tmp_path: Path) -> None:
@@ -104,3 +108,55 @@ def test_migrate_v6_adds_behavior() -> None:
     assert migrated["version"] == CURRENT_SETTINGS_VERSION
     assert migrated["behavior"]["start_minimized_to_tray"] is False
     assert migrated["translation"]["cache_enabled"] is False
+
+
+def test_migrate_v8_to_v9_skips_first_run_and_keeps_keys() -> None:
+    legacy = {
+        "version": 8,
+        "window": {},
+        "languages": {},
+        "translation": {},
+        "llm": {
+            "base_url": "http://192.168.88.41:8989/v1",
+            "api_keys": {"openrouter": "sk-keep", "custom": ""},
+        },
+        "behavior": {"global_hotkey": "ctrl+shift+c"},
+    }
+    migrated = migrate_settings(legacy)
+    assert migrated["version"] == 9
+    assert migrated["ui"]["first_run_done"] is True
+    assert migrated["window"]["editor_font"] == "system"
+    assert migrated["llm"]["base_url"] == "http://192.168.88.41:8989/v1"
+    assert migrated["llm"]["api_keys"]["openrouter"] == "sk-keep"
+    assert migrated["llm"]["api_key_refs"] == {"openrouter": "", "custom": ""}
+
+    loaded = AppSettings.from_dict(
+        {
+            "version": 8,
+            "window": {},
+            "languages": {},
+            "translation": {},
+            "llm": {
+                "base_url": "http://192.168.88.41:8989/v1",
+                "api_keys": {"openrouter": "sk-keep", "custom": ""},
+            },
+            "behavior": {"global_hotkey": "ctrl+shift+c"},
+        },
+        UIConfig(),
+    )
+    assert loaded.first_run_done is True
+    assert loaded.llm.base_url == "http://192.168.88.41:8989/v1"
+    assert loaded.behavior.global_hotkey == "ctrl+shift+c"
+
+
+def test_v9_roundtrip_editor_font_and_first_run(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "settings.json"
+    original = AppSettings()
+    original.editor_font = "mono"
+    original.first_run_done = True
+    original.llm.api_key_refs = {"openrouter": "openrouter", "custom": ""}
+    save_settings(original, cfg_path)
+    loaded = load_settings(UIConfig(), path=cfg_path)
+    assert loaded.editor_font == "mono"
+    assert loaded.first_run_done is True
+    assert loaded.llm.api_key_refs["openrouter"] == "openrouter"
