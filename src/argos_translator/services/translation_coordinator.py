@@ -31,6 +31,7 @@ class TranslationCoordinator:
 
     def start_argos(self, job_id: int, unit_count: int) -> None:
         self.active_job = job_id
+        self.argos_stop.clear()
         self.partial_translations[job_id] = {}
         self.total_units[job_id] = unit_count
 
@@ -43,14 +44,23 @@ class TranslationCoordinator:
     def start_llm(self, job_id: int) -> None:
         self.llm_active_job = job_id
 
-    def cancel(self) -> None:
-        self.argos_stop.set()
-        self.llm_stop.set()
-        self.active_job = None
-        self.llm_active_job = None
+    def cancel(self, job_id: Optional[int] = None) -> None:
+        """Остановить активное задание или конкретный job_id."""
+        if job_id is None:
+            self.argos_stop.set()
+            self.llm_stop.set()
+            self.active_job = None
+            self.llm_active_job = None
+            return
+        if self.active_job == job_id:
+            self.argos_stop.set()
+            self.active_job = None
+        if self.llm_active_job == job_id:
+            self.llm_stop.set()
+            self.llm_active_job = None
 
     def argos_should_stop(self, job_id: int) -> bool:
-        return self.argos_stop.is_set() and job_id != self.active_job
+        return self.argos_stop.is_set() or job_id != self.active_job
 
     def llm_is_stale(self, job_id: int) -> bool:
         return job_id != self.llm_active_job

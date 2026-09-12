@@ -701,6 +701,7 @@ class WorkspaceController extends Notifier<WorkspaceState> {
           argosError: event.message,
         );
       case TranslateCancelled():
+        AppLog.info('Argos job cancelled job_id=${event.jobId}');
         state = state.copyWith(
           argosBusy: false,
           argosStatus: argosController.text.isEmpty

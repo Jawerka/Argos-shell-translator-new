@@ -297,6 +297,29 @@ def test_translate_applies_packages_dir_from_body(
     assert applied and applied[-1] == str(packages)
 
 
+
+def test_cancel_then_translate_completes(
+    sidecar_http: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Flutter шлёт POST /v1/cancel перед каждым /v1/translate — новое задание должно завершиться."""
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    base, token = sidecar_http
+    with httpx.Client(timeout=10) as client:
+        cancel = client.post(f"{base}/v1/cancel", headers=_headers(token), json={})
+        assert cancel.status_code == 200
+        with client.stream(
+            "POST",
+            f"{base}/v1/translate",
+            headers=_headers(token),
+            json={"text": "Hello.", "from": "en", "to": "ru"},
+        ) as res:
+            assert res.status_code == 200
+            events = _ndjson_events(res)
+    assert events[-1]["type"] == "done"
+    assert engine.calls
+
+
 def test_translate_ndjson_stream(sidecar_http: tuple[str, str]) -> None:
     base, token = sidecar_http
     with httpx.Client(timeout=10) as client:
@@ -376,6 +399,26 @@ def test_cancel_stops_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     server.server_close()
     assert not error
     assert any(e["type"] == "cancelled" for e in events)
+
+
+def test_cancel_before_run_translate_completes(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    runner.coord.cancel()
+    events: list[dict[str, Any]] = []
+    status = runner.run_translate(
+        text="Hello.",
+        from_code="en",
+        to_code="ru",
+        emit=events.append,
+    )
+    assert status == "done"
+    assert events[-1]["type"] == "done"
+    assert engine.calls
 
 
 def test_job_runner_detect_and_passthrough_code(monkeypatch: pytest.MonkeyPatch) -> None:
