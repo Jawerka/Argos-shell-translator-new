@@ -38,3 +38,10 @@ def test_cache_set_max_size_trims() -> None:
     assert cache.get("0", "en", "ru") is None
     assert cache.get("3", "en", "ru") == "3"
     assert cache.get("4", "en", "ru") == "4"
+
+
+def test_cache_clear() -> None:
+    cache = TranslationCache(max_size=10)
+    cache.put("hello", "en", "ru", "привет")
+    cache.clear()
+    assert cache.get("hello", "en", "ru") is None

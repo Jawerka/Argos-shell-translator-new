@@ -1,9 +1,8 @@
 # Assets
 
-Статические ресурсы приложения:
+Статические ресурсы sidecar / инсталлятора:
 
-- `argos_translate.ico` — иконка окна и трея
-- `argos_translate.png` — запасной формат для pystray
+- `argos_translate.ico` — иконка `argos_sidecar.exe`
+- `version_info_sidecar.txt` — VERSIONINFO для PyInstaller sidecar
 
-При сборке EXE файлы копируются в `assets/` внутри дистрибутива.
-Код ищет ресурсы через `get_resource_path("argos_translate.ico")` (сначала `assets/`, затем корень проекта).
+Иконки Flutter UI: `apps/translator/assets/icons/`.

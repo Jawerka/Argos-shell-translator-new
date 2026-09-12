@@ -1,4 +1,4 @@
-"""Frozen sidecar excludes argos_translator.ui — import graph must stay CTk-free."""
+"""Frozen sidecar must stay free of tkinter / customtkinter."""
 
 from __future__ import annotations
 
@@ -27,23 +27,10 @@ def _run_isolated(code: str) -> subprocess.CompletedProcess[str]:
 
 
 _ASSERT_NO_UI = (
-    "ui = [m for m in sys.modules if m == 'argos_translator.ui' "
-    "or m.startswith('argos_translator.ui.')]; "
+    "ui = [m for m in sys.modules if m == 'tkinter' or m.startswith('tkinter.') "
+    "or m == 'customtkinter' or m.startswith('customtkinter.')]; "
     "raise SystemExit(0 if not ui else 'ui loaded: ' + repr(ui))"
 )
-
-
-def test_settings_py_source_does_not_import_ui() -> None:
-    text = (SRC / "argos_translator" / "config" / "settings.py").read_text(encoding="utf-8")
-    assert "argos_translator.ui" not in text
-
-
-def test_settings_import_does_not_load_ui() -> None:
-    proc = _run_isolated(
-        "import sys; from argos_translator.config.settings import AppSettings; "
-        "AppSettings(); " + _ASSERT_NO_UI
-    )
-    assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
 def test_sidecar_server_import_does_not_load_ui() -> None:

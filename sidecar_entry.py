@@ -1,4 +1,4 @@
-"""PyInstaller entry: frozen HTTP sidecar without CustomTkinter GUI."""
+"""PyInstaller entry: frozen HTTP sidecar."""
 
 from __future__ import annotations
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -72,3 +74,58 @@ def test_no_backend_raises(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="No translation backend"):
         engine.translate("hello", "en", "ru")
+
+
+def test_init_warns_when_no_backend(monkeypatch) -> None:
+    monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", None)
+    monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.MISSING)
+    monkeypatch.setattr(TranslateEngine, "_find_cli_executable", staticmethod(lambda: None))
+    engine = TranslateEngine()
+    assert engine.use_api is False
+    assert engine.cli_path is None
+
+
+def test_api_error_falls_back_to_cli(monkeypatch) -> None:
+    fake = SimpleNamespace(translate=MagicMock(side_effect=RuntimeError("api down")))
+    monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", fake)
+    monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.SUCCESS)
+
+    engine = TranslateEngine()
+    engine.cli_path = Path("/fake/argos-translate")
+    mock_run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="cli", stderr=""))
+    monkeypatch.setattr(argos_engine.subprocess, "run", mock_run)
+
+    assert engine.translate("text", "en", "ru") == "cli"
+    mock_run.assert_called_once()
+
+
+def test_cli_nonzero_raises(monkeypatch) -> None:
+    monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", None)
+    monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.MISSING)
+
+    engine = TranslateEngine()
+    engine.cli_path = Path("/fake/argos-translate")
+    engine.use_api = False
+    mock_run = MagicMock(return_value=SimpleNamespace(returncode=1, stdout="", stderr="boom"))
+    monkeypatch.setattr(argos_engine.subprocess, "run", mock_run)
+
+    with pytest.raises(RuntimeError, match="Translate CLI error"):
+        engine.translate("text", "en", "ru")
+
+
+def test_cli_timeout_raises(monkeypatch) -> None:
+    monkeypatch.setattr(argos_engine, "AT_TRANSLATE_MODULE", None)
+    monkeypatch.setattr(argos_engine, "ARGOS_MODULE_STATUS", ImportStatus.MISSING)
+
+    engine = TranslateEngine()
+    engine.cli_path = Path("/fake/argos-translate")
+    engine.use_api = False
+    monkeypatch.setattr(
+        argos_engine.subprocess,
+        "run",
+        MagicMock(side_effect=subprocess.TimeoutExpired(cmd="argos", timeout=1)),
+    )
+
+    with pytest.raises(RuntimeError, match="Translate timeout"):
+        engine.translate("text", "en", "ru")
+

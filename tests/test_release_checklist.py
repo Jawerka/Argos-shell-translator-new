@@ -1,23 +1,14 @@
-"""Автопроверки чеклиста «готово к релизу» (PLAN приложение B)."""
+"""Автопроверки чеклиста «готово к релизу»."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from argos_translator.config.settings import AppSettings
 from argos_translator.services.document_io import SUPPORTED_EXTENSIONS
 
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "argos_translator"
-
-
-def test_default_theme_is_dark() -> None:
-    assert AppSettings().theme == "dark"
-
-
-def test_llm_enabled_by_default() -> None:
-    assert AppSettings().llm.enabled is True
 
 
 def test_supported_document_extensions() -> None:
@@ -38,6 +29,5 @@ def test_no_debug_print_in_src() -> None:
         assert "print('DEBUG" not in text
 
 
-def test_plan_and_changelog_exist() -> None:
-    assert (ROOT / "PLAN.md").is_file()
+def test_changelog_exists() -> None:
     assert (ROOT / "CHANGELOG.md").is_file()

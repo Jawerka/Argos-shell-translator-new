@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""Проверка готовности к сборке EXE (без запуска PyInstaller).
-
-Проверяет и legacy CTk GUI (ArgosTranslator.spec), и Flutter sidecar (ArgosSidecar.spec).
-"""
+"""Проверка готовности к сборке HTTP sidecar (без запуска PyInstaller)."""
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,25 +20,22 @@ def main() -> int:
     errors: list[str] = []
 
     required = [
-        ROOT / "main.py",
-        ROOT / "ArgosTranslator.spec",
         ROOT / "ArgosSidecar.spec",
         ROOT / "sidecar_entry.py",
         ROOT / "sidecar" / "__main__.py",
         ROOT / "assets" / "version_info_sidecar.txt",
         ROOT / "hooks" / "hook-argostranslate.py",
-        ROOT / "src" / "argos_translator" / "app.py",
+        ROOT / "hooks" / "hook-ctranslate2.py",
+        ROOT / "hooks" / "hook-numpy.py",
     ]
     for path in required:
         if not path.exists():
             errors.append(f"Missing: {path.relative_to(ROOT)}")
 
     for optional in (
-        ROOT / "assets" / "version_info.txt",
-        ROOT / "assets" / "app.manifest",
-        ROOT / "docs" / "UI_BASELINE.md",
         ROOT / "scripts" / "build-windows.ps1",
         ROOT / "scripts" / "windows" / "argos-translate.iss",
+        ROOT / "scripts" / "smoke_flutter_dist.py",
     ):
         if not optional.exists():
             errors.append(f"Missing (recommended): {optional.relative_to(ROOT)}")
@@ -65,29 +58,6 @@ def main() -> int:
         if _spec_excludes_numpy(text):
             errors.append("ArgosSidecar.spec must not exclude numpy")
 
-    settings_src = (ROOT / "src" / "argos_translator" / "config" / "settings.py").read_text(
-        encoding="utf-8"
-    )
-    if "argos_translator.ui" in settings_src:
-        errors.append(
-            "config/settings.py must not import argos_translator.ui "
-            "(ArgosSidecar.spec excludes the CTk UI package)"
-        )
-
-    for mod in ("httpx",):
-        try:
-            __import__(mod)
-        except ImportError:
-            errors.append(
-                f"Missing Python package: {mod} (pip install -r requirements.txt in venv)"
-            )
-
-    for optional_mod in ("customtkinter", "darkdetect"):
-        try:
-            __import__(optional_mod)
-        except ImportError:
-            print(f"Note: optional {optional_mod} is not installed (legacy CTk EXE only)")
-
     if errors:
         print("Spec verification FAILED:")
         for err in errors:
@@ -97,7 +67,7 @@ def main() -> int:
     print("Spec verification OK")
     print(f"  icon: {icon}")
     print(f"  argos_models: {(ROOT / 'argos_models').exists()}")
-    print("  specs: ArgosTranslator.spec (legacy CTk), ArgosSidecar.spec")
+    print("  spec: ArgosSidecar.spec")
     return 0
 
 

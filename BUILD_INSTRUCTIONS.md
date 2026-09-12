@@ -1,6 +1,6 @@
 # Инструкция по сборке Argos Translate
 
-**Основной продукт:** Flutter + sidecar. Команда:
+**Продукт:** Flutter UI + Python sidecar. Команда:
 
 ```powershell
 scripts\build-windows.ps1
@@ -10,11 +10,11 @@ scripts\build-windows.ps1
 
 Flutter SDK ищется через PATH, `FLUTTER_ROOT`, `.fvm/flutter_sdk` или `%LOCALAPPDATA%\flutter` (`scripts/resolve-flutter.ps1`). Pin: `.fvmrc` → 3.44.0.
 
-Ниже — **legacy CustomTkinter** portable onedir (`ArgosTranslator.spec`).
-
 ## Требования
 
+- **Flutter 3.44.0** (PATH / `FLUTTER_ROOT` / FVM / `%LOCALAPPDATA%\flutter`)
 - **Python 3.10–3.12** (рекомендуется; Python 3.14 несовместим с numpy/ctranslate2/argostranslate)
+- `venv` с `pip install -r requirements.txt` (для sidecar: `argostranslate`, `langdetect`, `charset-normalizer`; для сборки EXE — `pyinstaller`)
 - Windows 10+ (основная платформа)
 
 ## Разработка
@@ -25,9 +25,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 pip install pytest
 
-python main.py
-# или
-python -m argos_translator
+scripts\dev.ps1
 
 pytest tests/ -q -m "not integration"
 # полный прогон (включая integration, если модели Argos установлены):
@@ -44,7 +42,7 @@ python install_models.py
 
 Или через **Настройки → Argos → Установить из bundle**.
 
-## Сборка EXE (portable onedir)
+## Сборка Windows (Flutter + sidecar)
 
 Перед сборкой (опционально):
 
@@ -52,61 +50,58 @@ python install_models.py
 python scripts/verify_spec.py
 ```
 
-```bat
-scripts\build.bat
-python scripts\smoke_dist.py
+```powershell
+scripts\build-windows.ps1
+python scripts\smoke_flutter_dist.py
 ```
 
-Или вручную:
+Sidecar отдельно:
 
 ```bash
 pip install pyinstaller
-pyinstaller ArgosTranslator.spec --clean --noconfirm
+pyinstaller ArgosSidecar.spec --clean --noconfirm
 ```
 
-**Debug-сборка** (с консолью для диагностики):
-
-```bash
-pyinstaller ArgosTranslator.debug.spec --clean --noconfirm
-```
+Результат PyInstaller: `dist/argos_sidecar/argos_sidecar.exe`. Скрипт сборки копирует его в `{app}/sidecar/` (не в корень Flutter — иначе конфликт DLL).
 
 ### Структура dist/
 
 ```
-dist/ArgosTranslator/
-├── ArgosTranslator.exe
-├── _internal/
-├── assets/                  ← иконки (argos_translate.ico)
-├── argos_models/          ← скопируйте *.argosmodel (en↔ru)
-├── packages/              ← создаётся при первом запуске (bootstrap)
-└── log/                   ← app_debug.log (создаётся при запуске)
+dist/ArgosTranslate/
+├── translator.exe
+├── data/                    ← Flutter assets
+├── sidecar/
+│   ├── argos_sidecar.exe
+│   └── _internal/           ← PyInstaller runtime (не смешивать с корнем Flutter)
+├── argos_models/            ← bundle *.argosmodel, если есть в репозитории
+└── log/                     ← sidecar.log / app_debug.log (создаются при запуске)
 ```
 
 ### После сборки
 
-1. Скопируйте `argos_models/*.argosmodel` в `dist/ArgosTranslator/argos_models/`
-2. Запустите `dist/ArgosTranslator/ArgosTranslator.exe` на машине без Python
-3. При первом запуске модели устанавливаются в `packages/` (`bootstrap_frozen_models`)
-4. Проверьте перевод en↔ru offline и лог `{exe_dir}/log/app_debug.log`
+1. Убедитесь, что `argos_models/*.argosmodel` попали в `dist/ArgosTranslate/argos_models/` (или поставьте bundle из UI)
+2. Запустите `dist/ArgosTranslate/translator.exe` на машине без Python
+3. Модели устанавливаются в `{app}/packages/` из настроек → Argos → установить bundle (`POST /v1/models/install {bundle:true}`)
+4. Проверьте перевод en↔ru offline и лог `{app}/log/sidecar.log`
 
 ## Пути (dev и frozen)
 
 | Что | Dev | Frozen (portable) |
 |-----|-----|-------------------|
 | Настройки | `%USERPROFILE%\.argos_translate\settings.json` | то же |
-| Логи | `log/app_debug.log` (рядом с проектом/exe) | `{exe_dir}/log/` |
-| Модели Argos | `%LOCALAPPDATA%/argos-translate/packages/` | `{exe_dir}/packages/` |
+| Лог Flutter | `log/app_debug.log` (рядом с проектом) | `{app}/log/app_debug.log` |
+| Лог sidecar | `log/sidecar.log` | `{app}/log/sidecar.log` |
+| Модели Argos | `%LOCALAPPDATA%/argos-translate/packages/` | `{app}/packages/` |
 
 ## PyInstaller hooks
 
 Кастомные хуки в `hooks/`:
 
 - `hooks/hook-numpy.py` — numpy + DLL
-- `hook-ctranslate2.py` — ctranslate2 DLL
-- `hook-argostranslate.py` — подмодули argostranslate
+- `hooks/hook-ctranslate2.py` — ctranslate2 DLL
+- `hooks/hook-argostranslate.py` — подмодули argostranslate
 
 ## Известные проблемы
 
 - **numpy в excludes** — не добавлять в spec (ломает ctranslate2)
 - **UPX** — DLL ctranslate2 исключены из UPX (`upx_exclude`)
-- При ошибках сборки используйте `ArgosTranslator.debug.spec`

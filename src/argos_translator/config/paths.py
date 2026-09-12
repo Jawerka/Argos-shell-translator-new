@@ -1,4 +1,4 @@
-"""Пути к ресурсам, моделям и настройкам."""
+"""Пути к ресурсам и моделям Argos."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def get_argos_packages_dir(custom_dir: Optional[str] = None) -> Path:
     Директория пакетов argos-translate.
 
     Приоритет:
-    1. custom_dir из настроек
+    1. custom_dir (из запроса sidecar)
     2. {app}/packages/ (frozen portable; Flutter: рядом с translator.exe)
     3. ~/.local/share/argos-translate/packages/
     4. %LOCALAPPDATA%/argos-translate/packages/ (Windows)
@@ -97,7 +97,3 @@ def get_argos_packages_dir(custom_dir: Optional[str] = None) -> Path:
         return linux_path
 
     return Path.home() / ".argos-translate" / "packages"
-
-
-def get_settings_path() -> Path:
-    return Path.home() / ".argos_translate" / "settings.json"

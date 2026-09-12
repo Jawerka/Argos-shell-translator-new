@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec — onedir HTTP sidecar (без CustomTkinter GUI).
+PyInstaller spec — onedir HTTP sidecar.
 
 Использование:
     venv\\Scripts\\python.exe -m PyInstaller ArgosSidecar.spec --clean --noconfirm
@@ -59,8 +59,6 @@ a = Analysis(
         "argos_translator",
         "argos_translator.config.constants",
         "argos_translator.config.paths",
-        "argos_translator.config.settings",
-        "argos_translator.config.window_state",
         "argos_translator.engines.argos_engine",
         "argos_translator.services.document_io",
         "argos_translator.services.model_manager",
@@ -88,10 +86,6 @@ a = Analysis(
         "pystray",
         "keyboard",
         "tkinter",
-        "argos_translator.app",
-        "argos_translator.ui",
-        "argos_translator.bootstrap",
-        "argos_translator.engines.llm_engine",
     ],
     noarchive=False,
     optimize=0,

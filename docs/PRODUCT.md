@@ -2,7 +2,7 @@
 
 Windows-first переводчик: **Flutter UI** + **Python sidecar** для офлайн-Argos. LLM ходит из Dart в OpenAI-compatible API. Android, TTS, overlay à la DeepL, docx/pdf — вне v1.
 
-Макеты в [`ui-mockups/`](../ui-mockups/) — визуальный контракт (не веб-приложение). Живой CustomTkinter (`src/argos_translator/ui/`, `app.py`) не развивать; оставить в git до паритета.
+Макеты в [`ui-mockups/`](../ui-mockups/) — визуальный контракт (не веб-приложение). CustomTkinter UI удалён.
 
 ## Уточнения к исходному плану
 
@@ -10,7 +10,7 @@ Windows-first переводчик: **Flutter UI** + **Python sidecar** для �
 2. **Настройки принадлежат UI.** Sidecar не читает и не пишет `settings.json`. Параметры перевода приходят в каждом запросе. Секреты LLM — только во Flutter (`flutter_secure_storage`).
 3. **Старт sidecar:** Flutter генерирует токен, кладёт его в `ARGOS_SIDECAR_TOKEN`, запускает процесс с `--host 127.0.0.1 --port 0 --parent-pid <pid>` (опционально `--token`), читает первую строку stdout или ready-файл `{"ok":true,"port":N}`. Слушать только loopback. Заголовок `X-Sidecar-Token` на всех методах, кроме опционального `GET /health` (liveness без деталей). Sidecar завершается, если родитель умер (watchdog). Лог: `{log_dir}/sidecar.log`, не stdout.
 4. **Melos не обязателен.** Два Dart-пакета — workspace в корневом `pubspec.yaml` и `scripts/dev.ps1`. Melos подключать, если пакетов станет больше.
-5. **CTk и Flutter делят settings v9.** Миграция в Python и Dart одинаковая, чтобы старый GUI ещё открывал файл. Новый инсталл: пустой LOCAL URL, хоткей не назначен.
+5. **Settings v9 живут только в Dart** (`packages/translator_core`). Sidecar файл не читает. Новый инсталл: пустой LOCAL URL, хоткей не назначен.
 
 ## Как это работает
 
@@ -204,14 +204,14 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 apps/translator/              Flutter Windows
 packages/translator_core/     settings v9, sidecar client, LLM SSE, чанки
 sidecar/                      HTTP вокруг src/argos_translator
-src/argos_translator/        движки (CTk UI пока живёт рядом)
+src/argos_translator/        движки Argos для sidecar
 ui-mockups/
-scripts/                      setup.ps1, dev.ps1, build-windows.ps1, *.iss
+scripts/                      dev.ps1, build-windows.ps1, *.iss
 ```
 
 Pin Flutter: [`.fvmrc`](../.fvmrc) → `3.44.0` (как у HomeShare; channel stable). FVM не обязателен, если SDK на PATH.
 
-Сборка v1: Flutter Release + PyInstaller sidecar (`console=False`) + `argos_models/` → Inno (`PrivilegesRequired=lowest`). Старый onedir GUI не удалять, пока нет паритета; README указывает Flutter как основной вход.
+Сборка v1: Flutter Release + PyInstaller sidecar (`console=False`) + `argos_models/` → Inno (`PrivilegesRequired=lowest`).
 
 ## Проверки этапа
 

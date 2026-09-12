@@ -32,6 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Legacy CustomTkinter UI, Python LLM-движок и Python-модель настроек вынесены из дерева (UI — Flutter, настройки — `translator_core`)
 - Legacy `test_translation.py` manual check script (use `pytest -m integration`)
 - Obsolete `pyinstall.md` stub (see `BUILD_INSTRUCTIONS.md`)
 - Duplicate root `hook-numpy.py` (use `hooks/hook-numpy.py`)

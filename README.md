@@ -89,25 +89,12 @@ Smoke: `python scripts\smoke_flutter_dist.py`.
 apps/translator/           Flutter Windows
 packages/translator_core/  settings v9, sidecar client, LLM SSE
 sidecar/                   HTTP вокруг src/argos_translator
-src/argos_translator/      движки (CTk UI пока в git)
+src/argos_translator/      движки Argos для sidecar
 scripts/build-windows.ps1
 scripts/windows/argos-translate.iss
 ```
 
 Sidecar слушает только `127.0.0.1`. Flutter кладёт токен в `ARGOS_SIDECAR_TOKEN`, запускает `--host 127.0.0.1 --port 0 --parent-pid <pid>`, читает `{"ok":true,"port":N}`.
-
-## Legacy CustomTkinter
-
-Старый GUI не удаляется, пока нет полного паритета; **не основной вход**.
-
-```powershell
-python main.py
-# portable onedir:
-venv\Scripts\python.exe -m PyInstaller ArgosTranslator.spec --clean --noconfirm
-python scripts\smoke_dist.py
-```
-
-Подробности CTk-сборки: [`BUILD_INSTRUCTIONS.md`](BUILD_INSTRUCTIONS.md).
 
 ## Лицензия
 
