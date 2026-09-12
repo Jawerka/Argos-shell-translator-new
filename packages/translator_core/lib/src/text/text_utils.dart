@@ -123,14 +123,87 @@ List<(int, int)> makeSentenceChunks(
   return ranges;
 }
 
+final cyrillicRegex = RegExp(r'[А-Яа-яЁё]');
+const cyrillicLangs = {'ru', 'bg', 'uk', 'mk', 'sr', 'be', 'kk'};
+const defaultFromCodes = {'en', 'ru'};
+
+bool containsCyrillic(String text) => cyrillicRegex.hasMatch(text);
+
+/// Исходные коды из пар `en->ru` / `en-ru` или уже готовые `en`.
+Set<String> installedFromCodesFromPairs(Iterable<Object?> pairs) {
+  final out = <String>{};
+  for (final raw in pairs) {
+    if (raw == null) {
+      continue;
+    }
+    var item = raw.toString().trim().toLowerCase().replaceAll('→', '->');
+    if (item.isEmpty) {
+      continue;
+    }
+    if (item.contains('->')) {
+      item = item.split('->').first.trim();
+    } else if (item.contains('-')) {
+      item = item.split('-').first.trim();
+    }
+    if (item.isNotEmpty) {
+      out.add(item);
+    }
+  }
+  return out;
+}
+
 /// Простая эвристика для UI, без langdetect.
 String detectLanguageHeuristic(String text) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) {
     return 'en';
   }
-  if (RegExp(r'[А-Яа-яЁё]').hasMatch(trimmed)) {
+  if (containsCyrillic(trimmed)) {
     return 'ru';
   }
   return 'en';
+}
+
+/// Свести детект к установленным from-кодам, иначе en/ru по алфавиту.
+String snapDetectedLang(
+  String detected, {
+  required bool hasCyrillic,
+  Iterable<Object?> installedFromCodes = const [],
+}) {
+  final heuristic = hasCyrillic ? 'ru' : 'en';
+  final code = detected.trim().toLowerCase();
+  if (code.isEmpty || code == 'auto') {
+    return heuristic;
+  }
+  var installed = installedFromCodesFromPairs(installedFromCodes);
+  if (installed.isEmpty) {
+    installed = {...defaultFromCodes};
+  }
+  if (hasCyrillic && !cyrillicLangs.contains(code)) {
+    return installed.contains('ru') ? 'ru' : heuristic;
+  }
+  if (!hasCyrillic && cyrillicLangs.contains(code)) {
+    return installed.contains('en') ? 'en' : heuristic;
+  }
+  if (installed.contains(code)) {
+    return code;
+  }
+  return heuristic;
+}
+
+/// AUTO: предпочтительная цель; при совпадении с детектом — переворот ru↔en.
+({String from, String to}) resolveAutoPair(
+  String detected,
+  String preferredTo,
+) {
+  final from = detected.trim().toLowerCase().isEmpty
+      ? 'en'
+      : detected.trim().toLowerCase();
+  final preferred = preferredTo.trim().toLowerCase().isEmpty
+      ? 'ru'
+      : preferredTo.trim().toLowerCase();
+  if (from == preferred) {
+    return (from: from, to: from == 'ru' ? 'en' : 'ru');
+  }
+  return (from: from, to: preferred);
 }

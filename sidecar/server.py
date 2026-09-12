@@ -48,13 +48,14 @@ class SidecarState:
         _apply_packages_dir(packages_dir)
         self.coord = TranslationCoordinator()
         self.cache = TranslationCache()
+        self.lock = threading.Lock()
         self.runner = ArgosJobRunner(
             coordinator=self.coord,
             cache=self.cache,
             packages_dir=packages_dir,
+            translate_lock=self.lock,
         )
         self.models = ModelManager(packages_dir)
-        self.lock = threading.Lock()
 
 
 def _json_bytes(payload: dict[str, Any], status: int = 200) -> tuple[int, bytes, str]:
@@ -191,7 +192,16 @@ def _handle(
         return
 
     if path == "/v1/cancel" and method == "POST":
-        state.coord.cancel()
+        body = _read_json(handler)
+        raw_job = body.get("job_id")
+        job_id: Optional[int] = None
+        if raw_job is not None and raw_job != "":
+            try:
+                job_id = int(raw_job)
+            except (TypeError, ValueError):
+                _send(handler, *_json_bytes({"error": "некорректный job_id"}, 400))
+                return
+        state.coord.cancel(job_id)
         _send(handler, *_json_bytes({"ok": True}))
         return
 
@@ -250,7 +260,7 @@ def _stream_translate(
     except Exception as exc:
         logger.exception("translate stream failed")
         try:
-            emit({"type": "error", "message": str(exc)})
+            emit({"type": "error", "job_id": state.coord.active_job, "message": str(exc)})
         except Exception:
             pass
 

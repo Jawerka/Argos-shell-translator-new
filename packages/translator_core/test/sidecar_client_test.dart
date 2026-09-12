@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -218,4 +219,65 @@ void main() {
     expect(defaultLanguageNames['ru'], 'Русский');
     expect(defaultLanguageNames['en'], 'English');
   });
+
+  test('translate parses error and cancelled NDJSON', () async {
+    final client = MockClient.streaming((request, bodyStream) async {
+      await bodyStream.drain<void>();
+      const ndjson =
+          '{"type":"error","job_id":3,"message":"Нет модели en→ru"}\n'
+          '{"type":"cancelled","job_id":3}\n';
+      return http.StreamedResponse(
+        Stream<List<int>>.fromIterable([utf8.encode(ndjson)]),
+        200,
+        headers: {'content-type': 'application/x-ndjson'},
+      );
+    });
+    final sidecar = SidecarClient(
+      baseUri: Uri.parse('http://127.0.0.1:9'),
+      token: 'secret-token',
+      httpClient: client,
+    );
+    final events = await sidecar
+        .translate(const TranslateRequest(text: 'Hello', fromCode: 'en'))
+        .toList();
+    expect(events[0], isA<TranslateError>());
+    expect((events[0] as TranslateError).jobId, 3);
+    expect((events[0] as TranslateError).message, contains('en→ru'));
+    expect(events[1], isA<TranslateCancelled>());
+  });
+
+  test('translate idle timeout', () async {
+    final controller = StreamController<List<int>>();
+    addTearDown(() async {
+      if (!controller.isClosed) {
+        await controller.close();
+      }
+    });
+    final client = MockClient.streaming((request, bodyStream) async {
+      await bodyStream.drain<void>();
+      return http.StreamedResponse(
+        controller.stream,
+        200,
+        headers: {'content-type': 'application/x-ndjson'},
+      );
+    });
+    final sidecar = SidecarClient(
+      baseUri: Uri.parse('http://127.0.0.1:9'),
+      token: 't',
+      httpClient: client,
+      translateIdleTimeout: const Duration(milliseconds: 40),
+    );
+    await expectLater(
+      sidecar
+          .translate(const TranslateRequest(text: 'Hello', fromCode: 'en'))
+          .toList(),
+      throwsA(
+        isA<SidecarException>().having(
+          (e) => e.message,
+          'message',
+          contains('таймаут'),
+        ),
+      ),
+    );
+  }, timeout: Timeout(const Duration(seconds: 5)));
 }

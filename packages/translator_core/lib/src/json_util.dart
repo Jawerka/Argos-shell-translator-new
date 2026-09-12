@@ -53,3 +53,27 @@ Map<String, String> readStringMap(
   }
   return Map<String, String>.from(fallback);
 }
+
+/// Ключи JSON, которых нет в известном наборе — для round-trip CTk-полей.
+Map<String, Object?> leftoverFields(
+  Map<String, dynamic> source,
+  Set<String> knownKeys,
+) {
+  final out = <String, Object?>{};
+  for (final entry in source.entries) {
+    if (!knownKeys.contains(entry.key)) {
+      out[entry.key] = entry.value;
+    }
+  }
+  return out;
+}
+
+Map<String, Object?> mergeExtras(
+  Map<String, Object?> extras,
+  Map<String, Object?> known,
+) {
+  if (extras.isEmpty) {
+    return known;
+  }
+  return <String, Object?>{...extras, ...known};
+}

@@ -281,8 +281,14 @@ abstract class AppLocalizations {
   /// No description provided for @detectedLangTooltip.
   ///
   /// In ru, this message translates to:
-  /// **'Определён язык исходника'**
+  /// **'Определённый язык → фактическая цель'**
   String get detectedLangTooltip;
+
+  /// No description provided for @engineRestarting.
+  ///
+  /// In ru, this message translates to:
+  /// **'Движок перезапускается…'**
+  String get engineRestarting;
 
   /// No description provided for @engineArgos.
   ///
@@ -979,6 +985,12 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Копировать и скрыть — сворачивать в трей'**
   String get settingsCopyHideTray;
+
+  /// No description provided for @settingsTripleCopy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Тройной Ctrl+C вставляет выделенный текст и переводит'**
+  String get settingsTripleCopy;
 
   /// No description provided for @settingsArgosAvailable.
   ///

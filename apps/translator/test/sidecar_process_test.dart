@@ -62,10 +62,10 @@ void main() {
     expect(parseSidecarReadyJson(''), isNull);
   });
 
-  test('buildSidecarLaunchArgs includes packages-dir when set', () {
+  test('buildSidecarLaunchArgs includes packages-dir and parent-pid', () {
     expect(
-      buildSidecarLaunchArgs(token: 'tok'),
-      ['--host', '127.0.0.1', '--port', '0', '--token', 'tok'],
+      buildSidecarLaunchArgs(),
+      ['--host', '127.0.0.1', '--port', '0'],
     );
     expect(
       buildSidecarLaunchArgs(token: 'tok', packagesDir: r'C:\models'),
@@ -81,8 +81,21 @@ void main() {
       ],
     );
     expect(
-      buildSidecarLaunchArgs(token: 'tok', packagesDir: '  '),
-      ['--host', '127.0.0.1', '--port', '0', '--token', 'tok'],
+      buildSidecarLaunchArgs(packagesDir: '  ', parentPid: 42),
+      ['--host', '127.0.0.1', '--port', '0', '--parent-pid', '42'],
+    );
+  });
+
+  test('SidecarRestartBudget allows three attempts per minute', () {
+    final budget = SidecarRestartBudget();
+    final t0 = DateTime(2026, 1, 1, 12, 0, 0);
+    expect(budget.nextDelay(t0), isNotNull);
+    expect(budget.nextDelay(t0.add(const Duration(seconds: 1))), isNotNull);
+    expect(budget.nextDelay(t0.add(const Duration(seconds: 2))), isNotNull);
+    expect(budget.nextDelay(t0.add(const Duration(seconds: 3))), isNull);
+    expect(
+      budget.nextDelay(t0.add(const Duration(minutes: 1, seconds: 1))),
+      isNotNull,
     );
   });
 }

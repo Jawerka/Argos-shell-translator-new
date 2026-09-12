@@ -12,6 +12,7 @@ enum SessionHint {
   installFailed,
   copied,
   largeFile,
+  engineRestarting,
 }
 
 enum HintRetry { none, llm, settings, translate }
@@ -21,6 +22,7 @@ class WorkspaceState {
     this.langFrom = 'auto',
     this.langTo = 'ru',
     this.detectedLang,
+    this.resolvedTo,
     this.argosStatus = EngineRunStatus.idle,
     this.llmStatus = EngineRunStatus.idle,
     this.argosBusy = false,
@@ -30,6 +32,7 @@ class WorkspaceState {
     this.activeTab = 'argos',
     this.languages = const <String, String>{},
     this.hasArgosModels = true,
+    this.argosPairs = const <String>[],
     this.llmReachable,
     this.documentPath,
     this.documentEncoding,
@@ -47,6 +50,7 @@ class WorkspaceState {
   final String langFrom;
   final String langTo;
   final String? detectedLang;
+  final String? resolvedTo;
   final EngineRunStatus argosStatus;
   final EngineRunStatus llmStatus;
   final bool argosBusy;
@@ -56,6 +60,7 @@ class WorkspaceState {
   final String activeTab;
   final Map<String, String> languages;
   final bool hasArgosModels;
+  final List<String> argosPairs;
   final bool? llmReachable;
   final String? documentPath;
   final String? documentEncoding;
@@ -71,11 +76,24 @@ class WorkspaceState {
 
   bool get isBusy => argosBusy || llmBusy || installingModels;
 
+  String? get visibleArgosError {
+    final err = argosError;
+    if (argosStatus != EngineRunStatus.error) {
+      return null;
+    }
+    if (err == null || err.isEmpty || err == 'no-models') {
+      return null;
+    }
+    return err;
+  }
+
   WorkspaceState copyWith({
     String? langFrom,
     String? langTo,
     String? detectedLang,
     bool clearDetected = false,
+    String? resolvedTo,
+    bool clearResolved = false,
     EngineRunStatus? argosStatus,
     EngineRunStatus? llmStatus,
     bool? argosBusy,
@@ -87,6 +105,7 @@ class WorkspaceState {
     String? activeTab,
     Map<String, String>? languages,
     bool? hasArgosModels,
+    List<String>? argosPairs,
     bool? llmReachable,
     bool clearLlmReachable = false,
     String? documentPath,
@@ -105,6 +124,7 @@ class WorkspaceState {
       langFrom: langFrom ?? this.langFrom,
       langTo: langTo ?? this.langTo,
       detectedLang: clearDetected ? null : (detectedLang ?? this.detectedLang),
+      resolvedTo: clearResolved ? null : (resolvedTo ?? this.resolvedTo),
       argosStatus: argosStatus ?? this.argosStatus,
       llmStatus: llmStatus ?? this.llmStatus,
       argosBusy: argosBusy ?? this.argosBusy,
@@ -114,6 +134,7 @@ class WorkspaceState {
       activeTab: activeTab ?? this.activeTab,
       languages: languages ?? this.languages,
       hasArgosModels: hasArgosModels ?? this.hasArgosModels,
+      argosPairs: argosPairs ?? this.argosPairs,
       llmReachable:
           clearLlmReachable ? null : (llmReachable ?? this.llmReachable),
       documentPath: documentPath ?? this.documentPath,

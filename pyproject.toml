@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "argos-translator"
-version = "2.0.0"
+version = "2.1.0"
 description = "Argos Translate Streaming — desktop translator with Argos and LLM"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -50,7 +50,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["argos_translator"]
+source = ["argos_translator", "sidecar"]
 omit = [
     "*/services/tray.py",
     "*/services/clipboard.py",

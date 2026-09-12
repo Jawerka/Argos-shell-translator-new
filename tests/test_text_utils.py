@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import types
+
+import pytest
+
+from argos_translator.utils.imports import ImportStatus
 from argos_translator.utils.text_utils import TextUtils
 
 
@@ -18,6 +23,81 @@ def test_detect_language_russian() -> None:
 
 def test_detect_language_english() -> None:
     assert TextUtils.detect_language("Hello world") == "en"
+
+
+def test_installed_from_codes() -> None:
+    assert TextUtils.installed_from_codes(["en->ru", "ru->en"]) == {"en", "ru"}
+    assert TextUtils.installed_from_codes(["en-ru"]) == {"en"}
+    assert TextUtils.installed_from_codes(["en", "ru"]) == {"en", "ru"}
+
+
+@pytest.mark.parametrize(
+    ("detected", "cyrillic", "installed", "expected"),
+    [
+        ("nl", False, ["en->ru", "ru->en"], "en"),
+        ("ca", False, ["en", "ru"], "en"),
+        ("so", False, ["en->ru"], "en"),
+        ("bg", True, ["en->ru", "ru->en"], "ru"),
+        ("de", False, ["en->ru", "de->ru"], "de"),
+        ("en", False, ["en->ru"], "en"),
+        ("", False, ["en->ru"], "en"),
+        ("auto", True, ["en->ru", "ru->en"], "ru"),
+    ],
+)
+def test_snap_detected_lang_table(
+    detected: str, cyrillic: bool, installed: list[str], expected: str
+) -> None:
+    assert (
+        TextUtils.snap_detected_lang(
+            detected,
+            has_cyrillic=cyrillic,
+            installed_from_codes=installed,
+        )
+        == expected
+    )
+
+
+class _LangHit:
+    def __init__(self, lang: str, prob: float) -> None:
+        self.lang = lang
+        self.prob = prob
+
+
+def _patch_langdetect(monkeypatch: pytest.MonkeyPatch, lang: str, prob: float) -> None:
+    fake = types.SimpleNamespace(detect_langs=lambda text: [_LangHit(lang, prob)])
+    monkeypatch.setattr(
+        "argos_translator.utils.text_utils.LANGDETECT_STATUS",
+        ImportStatus.SUCCESS,
+    )
+    monkeypatch.setattr("argos_translator.utils.text_utils.LANGDETECT_MODULE", fake)
+
+
+_LONG_EN = "This is a reasonably long English sentence used for language detection."
+_LONG_RU = "Это достаточно длинный русский текст для проверки определения языка."
+
+
+def test_detect_language_snaps_nl_even_with_high_prob(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_langdetect(monkeypatch, "nl", 0.99)
+    assert TextUtils.detect_language(_LONG_EN, installed_from_codes={"en", "ru"}) == "en"
+
+
+def test_detect_language_low_prob_uses_heuristic(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_langdetect(monkeypatch, "nl", 0.40)
+    assert TextUtils.detect_language(_LONG_EN, installed_from_codes={"en", "ru"}) == "en"
+
+
+def test_detect_language_cyrillic_bg_snaps_to_ru(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_langdetect(monkeypatch, "bg", 0.99)
+    assert TextUtils.detect_language(_LONG_RU, installed_from_codes={"en", "ru"}) == "ru"
+
+
+def test_resolve_auto_pair_table() -> None:
+    assert TextUtils.resolve_auto_pair("ru", "ru") == ("ru", "en")
+    assert TextUtils.resolve_auto_pair("en", "ru") == ("en", "ru")
+    assert TextUtils.resolve_auto_pair("de", "ru") == ("de", "ru")
+    assert TextUtils.resolve_auto_pair("de", "de") == ("de", "ru")
+    assert TextUtils.resolve_auto_pair("", "ru") == ("en", "ru")
+    assert TextUtils.resolve_auto_pair("en", "") == ("en", "ru")
 
 
 def test_make_sentence_chunks_single() -> None:

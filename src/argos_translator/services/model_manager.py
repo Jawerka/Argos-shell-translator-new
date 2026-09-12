@@ -59,9 +59,7 @@ class ModelManager:
 
         try:
             install_fn(str(model_path))
-            update_index = getattr(AT_PACKAGE_MODULE, "update_package_index", None)
-            if callable(update_index):
-                update_index()
+            # argostranslate 1.11 вызывает package.cache_clear() внутри install_from_path.
             logger.info("Installed model via API: %s", model_path.name)
             return True
         except Exception as exc:

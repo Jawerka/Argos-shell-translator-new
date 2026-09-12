@@ -27,6 +27,7 @@ class BehaviorSettings:
     minimize_to_tray_on_copy_hide: bool = True
     translation_cache_enabled: bool = False
     translation_cache_size: int = 500
+    triple_copy_enabled: bool = True
 
 
 @dataclass
@@ -167,6 +168,7 @@ class AppSettings:
                 "restore_clipboard_after_capture": self.behavior.restore_clipboard_after_capture,
                 "global_hotkey": self.behavior.global_hotkey,
                 "minimize_to_tray_on_copy_hide": self.behavior.minimize_to_tray_on_copy_hide,
+                "triple_copy_enabled": self.behavior.triple_copy_enabled,
             },
         }
 
@@ -255,6 +257,7 @@ class AppSettings:
             minimize_to_tray_on_copy_hide=bool(behavior_data.get("minimize_to_tray_on_copy_hide", True)),
             translation_cache_enabled=bool(cache_enabled),
             translation_cache_size=cache_size,
+            triple_copy_enabled=bool(behavior_data.get("triple_copy_enabled", True)),
         )
 
         sd_data = ui.get("settings_dialog")

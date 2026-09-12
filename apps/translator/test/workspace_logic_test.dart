@@ -13,6 +13,17 @@ void main() {
     expect(next.to, 'en');
   });
 
+  test('AUTO swap with resolved target uses actual pair', () {
+    final next = swapLanguagePair(
+      langFrom: 'auto',
+      langTo: 'ru',
+      detectedLang: 'ru',
+      resolvedTo: 'en',
+    );
+    expect(next.from, 'auto');
+    expect(next.to, 'ru');
+  });
+
   test('AUTO swap toggles ru/en when detected is missing', () {
     final next = swapLanguagePair(
       langFrom: 'auto',

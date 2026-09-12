@@ -20,6 +20,7 @@ import 'platform/launch_visibility.dart';
 import 'platform/global_hotkey.dart';
 import 'platform/instance_agent.dart';
 import 'platform/sidecar_process.dart';
+import 'platform/triple_copy.dart';
 import 'providers.dart';
 
 bool get inWidgetTest =>
@@ -77,8 +78,10 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
           ref.read(settingsProvider).behavior.closeAction == 'tray';
       DesktopShell.instance.onBeforeExit = () async {
         await GlobalHotkeyService.instance.unregister();
+        await TripleCopyService.instance.stop();
         await _sidecar.stop();
         await InstanceAgent.instance.stop();
+        await AppLog.close();
       };
       DesktopShell.instance.attachWindowListener();
       final showWindow = shouldShowWindowAtLaunch(
@@ -121,11 +124,32 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
     if (_ready || _error != null) {
       if (_ready && !skipDesktop) {
         await _syncGlobalHotkey(settings);
+        await _syncTripleCopy(settings);
       }
       return;
     }
 
     try {
+      _sidecar.onRestarting = () {
+        ref.read(workspaceProvider.notifier).markEngineRestarting();
+        ref.read(sidecarClientProvider.notifier).state = null;
+      };
+      _sidecar.onSessionChanged = (session) {
+        if (!mounted || session == null) {
+          return;
+        }
+        ref.read(sidecarClientProvider.notifier).state = SidecarClient(
+          baseUri: session.baseUri,
+          token: session.token,
+        );
+        ref.read(workspaceProvider.notifier).markEngineReady();
+      };
+      _sidecar.onRestartFailed = (error) {
+        AppLog.error('sidecar supervision failed', error);
+        if (mounted) {
+          setState(() => _error = error.toString());
+        }
+      };
       await _sidecar.start(packagesDir: settings.argos.packagesDir);
       final session = _sidecar.session;
       if (session != null && mounted) {
@@ -139,6 +163,7 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
       }
       setState(() => _ready = true);
       await _syncGlobalHotkey(settings);
+      await _syncTripleCopy(settings);
     } catch (e, st) {
       AppLog.error('Sidecar boot failed', e, st);
       if (!mounted) {
@@ -172,6 +197,18 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
     await GlobalHotkeyService.instance.sync(settings.behavior.globalHotkey);
   }
 
+  Future<void> _syncTripleCopy(AppSettings settings) async {
+    if (widget.skipDesktopShell || inWidgetTest || inFlutterTest()) {
+      return;
+    }
+    TripleCopyService.instance.onTriggered = () {
+      unawaited(ref.read(workspaceProvider.notifier).captureFromTripleCopy());
+    };
+    await TripleCopyService.instance.sync(
+      enabled: settings.behavior.tripleCopyEnabled,
+    );
+  }
+
   Widget _home(AppSettings settings) {
     if (_error != null) {
       return InitErrorScreen(message: _error!);
@@ -197,10 +234,12 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
     final light = settings.theme == 'light';
 
     ref.listen<AppSettings>(settingsProvider, (prev, next) {
-      if (prev?.behavior.globalHotkey == next.behavior.globalHotkey) {
-        return;
+      if (prev?.behavior.globalHotkey != next.behavior.globalHotkey) {
+        unawaited(_syncGlobalHotkey(next));
       }
-      unawaited(_syncGlobalHotkey(next));
+      if (prev?.behavior.tripleCopyEnabled != next.behavior.tripleCopyEnabled) {
+        unawaited(_syncTripleCopy(next));
+      }
     });
 
     return MaterialApp(

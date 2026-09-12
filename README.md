@@ -4,7 +4,7 @@ Windows-переводчик: **Flutter UI** + **Python sidecar** (офлайн 
 
 ## Быстрый старт
 
-Нужны **Flutter 3.44.0** (см. [`.fvmrc`](.fvmrc); например `C:\Users\Masny\AppData\Local\flutter\bin`) и **Python 3.10–3.12** (не 3.14 для Argos/ctranslate2).
+Нужны **Flutter 3.44.0** (см. [`.fvmrc`](.fvmrc); `flutter` в PATH, `FLUTTER_ROOT` или `%LOCALAPPDATA%\flutter`) и **Python 3.10–3.12** (не 3.14 для Argos/ctranslate2).
 
 ```powershell
 python -m venv venv
@@ -23,7 +23,6 @@ scripts\dev.ps1
 Проверки без окна:
 
 ```powershell
-$env:Path = "C:\Users\Masny\AppData\Local\flutter\bin;" + $env:Path
 flutter pub get
 dart analyze --fatal-infos packages/translator_core
 # в packages/translator_core:
@@ -75,7 +74,8 @@ Smoke: `python scripts\smoke_flutter_dist.py`.
 | Ctrl+O | Открыть файл |
 | Ctrl+S | Сохранить перевод |
 | Ctrl+Shift+S | Сохранить оба (Argos и LLM) |
-| Alt+Shift | Поменять языки |
+| Ctrl+Shift+X | Поменять языки |
+| Тройной Ctrl+C | Вставить скопированный текст и перевести |
 
 ## Архитектура
 
@@ -94,7 +94,7 @@ scripts/build-windows.ps1
 scripts/windows/argos-translate.iss
 ```
 
-Sidecar слушает только `127.0.0.1`. Flutter генерирует токен, запускает `--host 127.0.0.1 --port 0 --token`, читает `{"ok":true,"port":N}`.
+Sidecar слушает только `127.0.0.1`. Flutter кладёт токен в `ARGOS_SIDECAR_TOKEN`, запускает `--host 127.0.0.1 --port 0 --parent-pid <pid>`, читает `{"ok":true,"port":N}`.
 
 ## Legacy CustomTkinter
 

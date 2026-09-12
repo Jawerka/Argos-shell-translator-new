@@ -35,7 +35,7 @@ _icon_path = project_dir / "assets" / "argos_translate.ico"
 if not _icon_path.exists():
     _icon_path = project_dir / "argos_translate.ico"
 
-_version_file = project_dir / "assets" / "version_info.txt"
+_version_file = project_dir / "assets" / "version_info_sidecar.txt"
 
 a = Analysis(
     ["sidecar_entry.py"],

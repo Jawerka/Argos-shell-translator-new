@@ -79,6 +79,41 @@ String _normalizeContentField(Object? value) {
   return (content, reasoning);
 }
 
+String? parseSseErrorMessage(String line) {
+  if (!line.startsWith('data:')) {
+    return null;
+  }
+  final payload = line.substring(5).trim();
+  if (payload.isEmpty || payload == '[DONE]') {
+    return null;
+  }
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map) {
+      return null;
+    }
+    final data = asStringKeyedMap(decoded);
+    final error = data['error'];
+    if (error == null) {
+      return null;
+    }
+    if (error is String && error.trim().isNotEmpty) {
+      return error.trim();
+    }
+    if (error is Map) {
+      final mapped = asStringKeyedMap(error);
+      final message = mapped['message'] ?? mapped['msg'] ?? mapped['code'];
+      if (message != null && '$message'.trim().isNotEmpty) {
+        return '$message'.trim();
+      }
+    }
+    final asText = '$error'.trim();
+    return asText.isEmpty ? 'LLM stream error' : asText;
+  } on FormatException {
+    return null;
+  }
+}
+
 String? parseSseToken(String line) {
   final (content, reasoning) = parseSseParts(line);
   final piece = content.isNotEmpty ? content : reasoning;

@@ -248,6 +248,8 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-start-minimized')));
     await tester.tap(find.byKey(const Key('settings-restore-clipboard')));
     await tester.tap(find.byKey(const Key('settings-copy-hide')));
+    await tester.ensureVisible(find.byKey(const Key('settings-triple-copy')));
+    await tester.tap(find.byKey(const Key('settings-triple-copy')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('settings-apply')));
     await tester.pumpAndSettle();
@@ -259,6 +261,7 @@ void main() {
     expect(settings.behavior.startMinimizedToTray, isTrue);
     expect(settings.behavior.restoreClipboardAfterCapture, isFalse);
     expect(settings.behavior.minimizeToTrayOnCopyHide, isFalse);
+    expect(settings.behavior.tripleCopyEnabled, isFalse);
   });
 
   testWidgets('footer Apply stays, Cancel restores LLM, OK pops',

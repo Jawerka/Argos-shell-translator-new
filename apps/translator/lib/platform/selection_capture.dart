@@ -7,7 +7,47 @@ import 'package:win32/win32.dart';
 
 import '../core/app_log.dart';
 
-const _captureDelay = Duration(milliseconds: 80);
+const modifierReleaseTimeout = Duration(milliseconds: 300);
+const clipboardPollTimeout = Duration(milliseconds: 500);
+
+int clipboardSequenceNumber() {
+  if (!Platform.isWindows) {
+    return 0;
+  }
+  try {
+    return GetClipboardSequenceNumber();
+  } catch (_) {
+    return 0;
+  }
+}
+
+bool anyCaptureModifierDown() {
+  if (!Platform.isWindows) {
+    return false;
+  }
+  const keys = [VK_CONTROL, VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN];
+  for (final vk in keys) {
+    if ((GetAsyncKeyState(vk) & 0x8000) != 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Future<void> waitCaptureModifiersReleased({
+  Duration timeout = modifierReleaseTimeout,
+}) async {
+  if (!Platform.isWindows) {
+    return;
+  }
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (!anyCaptureModifierDown()) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+  }
+}
 
 /// Симулировать Ctrl+C и прочитать буфер (как legacy CTk clipboard capture).
 Future<String?> captureSelectionText({
@@ -22,6 +62,9 @@ Future<String?> captureSelectionText({
     oldText = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
   } catch (_) {}
 
+  await waitCaptureModifiersReleased();
+  final seqBefore = clipboardSequenceNumber();
+
   try {
     _sendCtrlC();
   } catch (e, st) {
@@ -29,7 +72,10 @@ Future<String?> captureSelectionText({
     return null;
   }
 
-  await Future<void>.delayed(_captureDelay);
+  final seqAfter = await _waitClipboardSequenceChanged(seqBefore);
+  if (seqAfter == seqBefore) {
+    return null;
+  }
 
   final captured = await _readClipboard();
   if (restoreOriginal &&
@@ -45,6 +91,19 @@ Future<String?> captureSelectionText({
 
   final text = captured?.trim();
   return (text == null || text.isEmpty) ? null : text;
+}
+
+Future<int> _waitClipboardSequenceChanged(int seqBefore) async {
+  final deadline = DateTime.now().add(clipboardPollTimeout);
+  var current = seqBefore;
+  while (DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    current = clipboardSequenceNumber();
+    if (current != seqBefore) {
+      return current;
+    }
+  }
+  return current;
 }
 
 Future<String?> _readClipboard() async {

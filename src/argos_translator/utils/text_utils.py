@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from argos_translator.config.constants import TranslationConstants
 from argos_translator.utils.imports import LANGDETECT_MODULE, LANGDETECT_STATUS, ImportStatus
@@ -13,6 +13,10 @@ logger = logging.getLogger("ArgosStreaming")
 
 # Короткие фразы langdetect часто путает (en↔nl, ru↔bg); ниже порога — только по алфавиту.
 _MIN_LANGDETECT_CHARS = 20
+_MIN_LANGDETECT_PROB = 0.85
+_CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
+_CYRILLIC_LANGS = frozenset({"ru", "bg", "uk", "mk", "sr", "be", "kk"})
+_DEFAULT_FROM_CODES = frozenset({"en", "ru"})
 
 
 class TextUtils:
@@ -38,19 +42,72 @@ class TextUtils:
         return segments
 
     @staticmethod
-    def detect_language(text: str) -> str:
+    def has_cyrillic(text: str) -> bool:
+        return bool(_CYRILLIC_RE.search(text or ""))
+
+    @staticmethod
+    def installed_from_codes(pairs: Optional[Iterable[str]] = None) -> set[str]:
+        """Исходные коды из пар `en->ru` / `en-ru` или уже готовые `en`."""
+        out: set[str] = set()
+        for raw in pairs or []:
+            item = str(raw).strip().lower().replace("→", "->")
+            if not item:
+                continue
+            if "->" in item:
+                item = item.split("->", 1)[0].strip()
+            elif "-" in item:
+                item = item.split("-", 1)[0].strip()
+            if item:
+                out.add(item)
+        return out
+
+    @staticmethod
+    def snap_detected_lang(
+        detected: str,
+        *,
+        has_cyrillic: bool,
+        installed_from_codes: Optional[Iterable[str]] = None,
+    ) -> str:
+        """Свести детект к установленным from-кодам, иначе en/ru по алфавиту."""
+        heuristic = "ru" if has_cyrillic else "en"
+        code = (detected or "").strip().lower()
+        if not code or code == "auto":
+            return heuristic
+        installed = TextUtils.installed_from_codes(installed_from_codes)
+        if not installed:
+            installed = set(_DEFAULT_FROM_CODES)
+        if has_cyrillic and code not in _CYRILLIC_LANGS:
+            return "ru" if "ru" in installed else heuristic
+        if not has_cyrillic and code in _CYRILLIC_LANGS:
+            return "en" if "en" in installed else heuristic
+        if code in installed:
+            return code
+        return heuristic
+
+    @staticmethod
+    def detect_language(
+        text: str,
+        installed_from_codes: Optional[Iterable[str]] = None,
+    ) -> str:
         text = (text or "").strip()
         if not text:
             return "en"
 
-        if re.search(r"[А-Яа-яЁё]", text):
-            cyrillic_default = "ru"
-        else:
-            cyrillic_default = None
+        cyrillic = TextUtils.has_cyrillic(text)
+        heuristic = "ru" if cyrillic else "en"
+
+        def _snap(code: str) -> str:
+            return TextUtils.snap_detected_lang(
+                code,
+                has_cyrillic=cyrillic,
+                installed_from_codes=installed_from_codes,
+            )
 
         if len(text) < _MIN_LANGDETECT_CHARS:
-            return cyrillic_default or "en"
+            return _snap(heuristic)
 
+        detected = heuristic
+        prob = 0.0
         if LANGDETECT_STATUS == ImportStatus.SUCCESS and LANGDETECT_MODULE is not None:
             try:
                 detect_fn = getattr(LANGDETECT_MODULE, "detect_langs", None)
@@ -61,19 +118,27 @@ class TextUtils:
                         code = getattr(top, "lang", None)
                         prob = float(getattr(top, "prob", 0.0))
                         if code:
-                            code = code.lower()
-                            logger.debug("langdetect -> %s (%.2f)", code, prob)
-                            if cyrillic_default:
-                                if code == "ru":
-                                    return "ru"
-                                if len(text) < 120 and code in ("bg", "uk", "mk", "sr"):
-                                    return "ru"
-                                return code
-                            return code
+                            detected = str(code).lower()
+                            logger.debug("langdetect -> %s (%.2f)", detected, prob)
             except Exception as exc:
                 logger.debug("langdetect failed: %s", exc)
+                detected = heuristic
+                prob = 0.0
 
-        return cyrillic_default or "en"
+        if prob < _MIN_LANGDETECT_PROB:
+            detected = heuristic
+        return _snap(detected)
+
+    @staticmethod
+    def resolve_auto_pair(detected: str, preferred_to: str) -> Tuple[str, str]:
+        """AUTO: предпочтительная цель; при совпадении с детектом — переворот ru↔en."""
+        from_code = (detected or "").strip().lower() or "en"
+        preferred = (preferred_to or "").strip().lower() or "ru"
+        if from_code == preferred:
+            to_code = "en" if from_code == "ru" else "ru"
+        else:
+            to_code = preferred
+        return from_code, to_code
 
     @staticmethod
     def split_into_paragraphs(text: str) -> List[str]:

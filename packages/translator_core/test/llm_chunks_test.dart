@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -79,6 +80,18 @@ void main() {
       'Hi',
     );
     expect(parseSseToken('data: [DONE]'), isNull);
+  });
+
+  test('parseSseErrorMessage reads data error', () {
+    expect(
+      parseSseErrorMessage('data: {"error":{"message":"model down"}}'),
+      'model down',
+    );
+    expect(parseSseErrorMessage('data: {"error":"boom"}'), 'boom');
+    expect(
+      parseSseErrorMessage('data: {"choices":[{"delta":{"content":"x"}}]}'),
+      isNull,
+    );
   });
 
   test('finalizeStreamText prefers content', () {
@@ -280,5 +293,114 @@ void main() {
       ),
     );
     expect(models, ['qwen3-8b', 'llama-3.1-8b']);
+  });
+
+  test('SSE error payload becomes LlmHttpException', () async {
+    final client = MockClient.streaming((request, bodyStream) async {
+      await bodyStream.drain<void>();
+      const sse = 'data: {"error":{"message":"provider exploded"}}\n\n';
+      return http.StreamedResponse(
+        Stream<List<int>>.fromIterable([utf8.encode(sse)]),
+        200,
+        headers: {'content-type': 'text/event-stream'},
+      );
+    });
+    final llm = LlmClient(httpClient: client);
+    await expectLater(
+      llm
+          .translate(
+            settings: const LlmSettings(
+              enabled: true,
+              provider: 'local',
+              baseUrl: 'http://127.0.0.1:8080/v1',
+              model: 'test',
+            ),
+            text: 'Hi',
+            fromCode: 'en',
+            toCode: 'ru',
+            languages: const {},
+          )
+          .toList(),
+      throwsA(isA<LlmHttpException>()),
+    );
+  });
+
+  test('retry after cancel does not send second request', () async {
+    var posts = 0;
+    final cancelled = [false];
+    final client = MockClient.streaming((request, bodyStream) async {
+      await bodyStream.drain<void>();
+      posts++;
+      cancelled[0] = true;
+      throw const SocketException('connection reset');
+    });
+    final llm = LlmClient(httpClient: client);
+    await expectLater(
+      llm
+          .translate(
+            settings: const LlmSettings(
+              enabled: true,
+              provider: 'local',
+              baseUrl: 'http://127.0.0.1:8080/v1',
+              model: 'test',
+            ),
+            text: 'Hi',
+            fromCode: 'en',
+            toCode: 'ru',
+            languages: const {},
+            isCancelled: () => cancelled[0],
+          )
+          .toList(),
+      throwsA(isA<LlmCancelledException>()),
+    );
+    expect(posts, 1);
+  });
+
+  test('chat_template_kwargs only for local provider', () async {
+    final bodies = <Map<String, dynamic>>[];
+    final client = MockClient.streaming((request, bodyStream) async {
+      final raw = utf8.decode(await bodyStream.toBytes());
+      bodies.add(jsonDecode(raw) as Map<String, dynamic>);
+      const sse = 'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+          'data: [DONE]\n\n';
+      return http.StreamedResponse(
+        Stream<List<int>>.fromIterable([utf8.encode(sse)]),
+        200,
+        headers: {'content-type': 'text/event-stream'},
+      );
+    });
+    final llm = LlmClient(httpClient: client);
+    await llm
+        .translate(
+          settings: const LlmSettings(
+            enabled: true,
+            provider: 'openrouter',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            apiKeys: {'openrouter': 'sk-test'},
+            model: 'test',
+          ),
+          text: 'Hi',
+          fromCode: 'en',
+          toCode: 'ru',
+          languages: const {},
+        )
+        .toList();
+    expect(bodies.single.containsKey('chat_template_kwargs'), isFalse);
+
+    await llm
+        .translate(
+          settings: const LlmSettings(
+            enabled: true,
+            provider: 'local',
+            baseUrl: 'http://127.0.0.1:8080/v1',
+            model: 'test',
+          ),
+          text: 'Hi',
+          fromCode: 'en',
+          toCode: 'ru',
+          languages: const {},
+        )
+        .toList();
+    expect(bodies.last['chat_template_kwargs'], {'enable_thinking': false});
   });
 }

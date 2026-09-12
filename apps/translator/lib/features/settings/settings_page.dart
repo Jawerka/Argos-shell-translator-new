@@ -1196,6 +1196,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
         ),
+        SettingsCheckbox(
+          key: const Key('settings-triple-copy'),
+          label: l10n.settingsTripleCopy,
+          value: _draft.behavior.tripleCopyEnabled,
+          onChanged: (value) => _setDraft(
+            _draft.copyWith(
+              behavior: _draft.behavior.copyWith(tripleCopyEnabled: value),
+            ),
+          ),
+        ),
       ],
     );
   }

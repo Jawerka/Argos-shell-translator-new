@@ -12,6 +12,7 @@ class BehaviorSettings {
     this.minimizeToTrayOnCopyHide = true,
     this.translationCacheEnabled = false,
     this.translationCacheSize = 500,
+    this.tripleCopyEnabled = true,
   });
 
   final String closeAction;
@@ -22,6 +23,7 @@ class BehaviorSettings {
   final bool minimizeToTrayOnCopyHide;
   final bool translationCacheEnabled;
   final int translationCacheSize;
+  final bool tripleCopyEnabled;
 
   BehaviorSettings copyWith({
     String? closeAction,
@@ -32,6 +34,7 @@ class BehaviorSettings {
     bool? minimizeToTrayOnCopyHide,
     bool? translationCacheEnabled,
     int? translationCacheSize,
+    bool? tripleCopyEnabled,
   }) {
     return BehaviorSettings(
       closeAction: closeAction ?? this.closeAction,
@@ -45,6 +48,7 @@ class BehaviorSettings {
       translationCacheEnabled:
           translationCacheEnabled ?? this.translationCacheEnabled,
       translationCacheSize: translationCacheSize ?? this.translationCacheSize,
+      tripleCopyEnabled: tripleCopyEnabled ?? this.tripleCopyEnabled,
     );
   }
 }
@@ -209,6 +213,7 @@ class WindowSettings {
     this.editorLayout = 'split',
     this.editorFont = 'system',
     this.geometryLegacy,
+    this.extras = const {},
   });
 
   final String state;
@@ -224,6 +229,7 @@ class WindowSettings {
   final String editorLayout;
   final String editorFont;
   final String? geometryLegacy;
+  final Map<String, Object?> extras;
 
   WindowSettings copyWith({
     String? state,
@@ -239,6 +245,7 @@ class WindowSettings {
     String? editorLayout,
     String? editorFont,
     String? geometryLegacy,
+    Map<String, Object?>? extras,
   }) {
     return WindowSettings(
       state: state ?? this.state,
@@ -254,6 +261,7 @@ class WindowSettings {
       editorLayout: editorLayout ?? this.editorLayout,
       editorFont: editorFont ?? this.editorFont,
       geometryLegacy: geometryLegacy ?? this.geometryLegacy,
+      extras: Map<String, Object?>.from(extras ?? this.extras),
     );
   }
 }
@@ -277,6 +285,8 @@ class AppSettings {
     this.activeTranslationTab = 'argos',
     this.firstRunDone = false,
     this.defaultEngine = 'both_adaptive',
+    this.uiExtras = const {},
+    this.extras = const {},
   });
 
   final int version;
@@ -295,6 +305,8 @@ class AppSettings {
   final String activeTranslationTab;
   final bool firstRunDone;
   final String defaultEngine;
+  final Map<String, Object?> uiExtras;
+  final Map<String, Object?> extras;
 
   String get theme => window.theme;
 
@@ -315,6 +327,8 @@ class AppSettings {
     String? activeTranslationTab,
     bool? firstRunDone,
     String? defaultEngine,
+    Map<String, Object?>? uiExtras,
+    Map<String, Object?>? extras,
   }) {
     return AppSettings(
       version: version ?? this.version,
@@ -333,12 +347,14 @@ class AppSettings {
       activeTranslationTab: activeTranslationTab ?? this.activeTranslationTab,
       firstRunDone: firstRunDone ?? this.firstRunDone,
       defaultEngine: defaultEngine ?? this.defaultEngine,
+      uiExtras: Map<String, Object?>.from(uiExtras ?? this.uiExtras),
+      extras: Map<String, Object?>.from(extras ?? this.extras),
     );
   }
 
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson() => mergeExtras(extras, {
         'version': version,
-        'window': {
+        'window': mergeExtras(window.extras, {
           'state': window.state,
           'x': window.x,
           'y': window.y,
@@ -352,7 +368,7 @@ class AppSettings {
           'editor_layout': window.editorLayout,
           'editor_font': window.editorFont,
           'geometry_legacy': window.geometryLegacy,
-        },
+        }),
         'translation': {
           'default_engine': defaultEngine,
           'streaming': streaming,
@@ -383,10 +399,10 @@ class AppSettings {
           'file_chunk_max_chars': llm.fileChunkMaxChars,
           'file_chunk_context': llm.fileChunkContext,
         },
-        'ui': {
+        'ui': mergeExtras(uiExtras, {
           'active_translation_tab': activeTranslationTab,
           'first_run_done': firstRunDone,
-        },
+        }),
         'files': {
           'output_encoding': files.outputEncoding,
           'output_suffix': files.outputSuffix,
@@ -408,8 +424,9 @@ class AppSettings {
               behavior.restoreClipboardAfterCapture,
           'global_hotkey': behavior.globalHotkey,
           'minimize_to_tray_on_copy_hide': behavior.minimizeToTrayOnCopyHide,
+          'triple_copy_enabled': behavior.tripleCopyEnabled,
         },
-      };
+      });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     final data = migrateSettings(json);
@@ -462,6 +479,7 @@ class AppSettings {
             : (window['geometry_legacy'] is String
                 ? window['geometry_legacy'] as String
                 : null),
+        extras: leftoverFields(window, _windowKnownKeys),
       ),
       streaming: readBool(
         translation['streaming'] ?? window['streaming'],
@@ -523,13 +541,52 @@ class AppSettings {
             readBool(behaviorData['minimize_to_tray_on_copy_hide'], true),
         translationCacheEnabled: cacheEnabled,
         translationCacheSize: cacheSize,
+        tripleCopyEnabled: readBool(behaviorData['triple_copy_enabled'], true),
       ),
       activeTranslationTab: readString(ui['active_translation_tab'], 'argos'),
       firstRunDone: readBool(ui['first_run_done'], false),
       defaultEngine: readString(translation['default_engine'], 'both_adaptive'),
+      uiExtras: leftoverFields(ui, _uiKnownKeys),
+      extras: leftoverFields(data, _topLevelKnownKeys),
     );
   }
 }
+
+const _topLevelKnownKeys = {
+  'version',
+  'window',
+  'translation',
+  'languages',
+  'llm',
+  'ui',
+  'files',
+  'argos',
+  'behavior',
+};
+
+const _windowKnownKeys = {
+  'state',
+  'x',
+  'y',
+  'width',
+  'height',
+  'dpi_scale',
+  'geometry_units',
+  'opacity',
+  'theme',
+  'font_scale',
+  'editor_layout',
+  'editor_font',
+  'geometry_legacy',
+  'geometry',
+  'streaming',
+  'scroll_sync',
+};
+
+const _uiKnownKeys = {
+  'active_translation_tab',
+  'first_run_done',
+};
 
 Map<String, String> _migrateApiKeys(Map<String, dynamic> llmData) {
   final keys = llmData['api_keys'];

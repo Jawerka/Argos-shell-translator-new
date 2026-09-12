@@ -35,6 +35,9 @@ enum FakeTranslateMode {
   /// start → chunk → error.
   error,
 
+  /// start → error, без чанков (нет модели).
+  missingPair,
+
   /// start → chunk → cancelled.
   cancelled,
 }
@@ -99,18 +102,30 @@ SidecarClient fakeSidecar([FakeSidecarOptions? options]) {
           yield utf8.encode(
             '{"type":"start","job_id":1,"from":"$detectedFrom","to":"$to","unit_count":1}\n',
           );
-          yield utf8.encode(
-            '{"type":"chunk","job_id":1,"index":0,"para_idx":0,'
-            '"text":${jsonEncode(opts.translatedText)},"done":1,"total":1}\n',
-          );
           switch (opts.translateMode) {
             case FakeTranslateMode.success:
+              yield utf8.encode(
+                '{"type":"chunk","job_id":1,"index":0,"para_idx":0,'
+                '"text":${jsonEncode(opts.translatedText)},"done":1,"total":1}\n',
+              );
               yield utf8.encode('{"type":"done","job_id":1}\n');
             case FakeTranslateMode.error:
               yield utf8.encode(
+                '{"type":"chunk","job_id":1,"index":0,"para_idx":0,'
+                '"text":${jsonEncode(opts.translatedText)},"done":1,"total":1}\n',
+              );
+              yield utf8.encode(
                 '{"type":"error","job_id":1,"message":"argos failed"}\n',
               );
+            case FakeTranslateMode.missingPair:
+              yield utf8.encode(
+                '{"type":"error","job_id":1,"message":"Нет модели nl→ru"}\n',
+              );
             case FakeTranslateMode.cancelled:
+              yield utf8.encode(
+                '{"type":"chunk","job_id":1,"index":0,"para_idx":0,'
+                '"text":${jsonEncode(opts.translatedText)},"done":1,"total":1}\n',
+              );
               yield utf8.encode('{"type":"cancelled","job_id":1}\n');
           }
         }
@@ -208,6 +223,9 @@ class FakeLlmClient extends LlmClient {
   final Duration tokenDelay;
   var translateCalls = 0;
   var fetchModelsCalls = 0;
+  String? lastFromCode;
+  String? lastToCode;
+  String? lastText;
 
   @override
   Future<List<String>> fetchModels(
@@ -233,6 +251,9 @@ class FakeLlmClient extends LlmClient {
     void Function(int done, int total)? onChunkProgress,
   }) async* {
     translateCalls++;
+    lastFromCode = fromCode;
+    lastToCode = toCode;
+    lastText = text;
     if (!settings.enabled) {
       throw LlmDisabledException();
     }

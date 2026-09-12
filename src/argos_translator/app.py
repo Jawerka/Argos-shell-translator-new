@@ -431,9 +431,9 @@ class TranslatorApp:
 
         if from_code == "auto":
             detected = TextUtils.detect_language(text)
-            from_code = detected
-            auto_target = self.settings.auto_target_lang or "ru"
-            to_code = auto_target if detected != auto_target else ("en" if detected == "ru" else "ru")
+            from_code, to_code = TextUtils.resolve_auto_pair(
+                detected, self.settings.auto_target_lang or to_code or "ru"
+            )
 
             try:
                 from_name = self.languages.get(from_code, from_code)
@@ -1137,9 +1137,9 @@ class TranslatorApp:
         to_code = self.lang_widget.get_to_code()
         if from_code == "auto":
             detected = TextUtils.detect_language(text)
-            from_code = detected
-            auto_target = self.settings.auto_target_lang or "ru"
-            to_code = auto_target if detected != auto_target else ("en" if detected == "ru" else "ru")
+            from_code, to_code = TextUtils.resolve_auto_pair(
+                detected, self.settings.auto_target_lang or to_code or "ru"
+            )
         llm_job = self.coord.active_job or self.coord.allocate_job()
         self._start_llm_translation(
             llm_job, text, from_code, to_code, self._document_file_type

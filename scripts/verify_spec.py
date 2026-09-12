@@ -29,6 +29,7 @@ def main() -> int:
         ROOT / "ArgosSidecar.spec",
         ROOT / "sidecar_entry.py",
         ROOT / "sidecar" / "__main__.py",
+        ROOT / "assets" / "version_info_sidecar.txt",
         ROOT / "hooks" / "hook-argostranslate.py",
         ROOT / "src" / "argos_translator" / "app.py",
     ]
@@ -73,13 +74,19 @@ def main() -> int:
             "(ArgosSidecar.spec excludes the CTk UI package)"
         )
 
-    for mod in ("customtkinter", "darkdetect", "httpx"):
+    for mod in ("httpx",):
         try:
             __import__(mod)
         except ImportError:
             errors.append(
                 f"Missing Python package: {mod} (pip install -r requirements.txt in venv)"
             )
+
+    for optional_mod in ("customtkinter", "darkdetect"):
+        try:
+            __import__(optional_mod)
+        except ImportError:
+            print(f"Note: optional {optional_mod} is not installed (legacy CTk EXE only)")
 
     if errors:
         print("Spec verification FAILED:")

@@ -45,8 +45,12 @@ log/
 .coverage
 htmlcov/
 .pytest_cache/
+.ruff_cache/
 coverage/
 lcov.info
+RUN.lnk
+.env
+.env.*
 
 # OS
 .DS_Store

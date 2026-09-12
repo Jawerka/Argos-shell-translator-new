@@ -1,7 +1,7 @@
 name: translator
 description: Argos Translate — Flutter Windows shell.
 publish_to: none
-version: 1.0.0+1
+version: 2.1.0+1
 resolution: workspace
 
 environment:

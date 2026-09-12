@@ -20,6 +20,19 @@ class LlmClient {
   LlmClient({http.Client? httpClient}) : _http = httpClient;
 
   final http.Client? _http;
+  http.Client? _activeClient;
+
+  /// Прервать in-flight HTTP (Stop / новый цикл).
+  void abort() {
+    final client = _activeClient;
+    _activeClient = null;
+    if (client == null) {
+      return;
+    }
+    if (_http == null) {
+      client.close();
+    }
+  }
 
   /// Нарастающий полный текст перевода (префикс + текущий чанк), как Python on_token.
   Stream<String> translate({
@@ -42,6 +55,7 @@ class LlmClient {
 
     final client = _http ?? http.Client();
     final ownsClient = _http == null;
+    _activeClient = client;
     try {
       final maxChars = chunkMaxChars(settings, fileType);
       final chunks = splitLlmChunks(text, maxChars);
@@ -100,6 +114,9 @@ class LlmClient {
             yield prefix + acc;
           }
         } on Object catch (exc) {
+          if (exc is LlmCancelledException || exc is LlmHttpException) {
+            rethrow;
+          }
           if (_isCancel(isCancelled) && chunkResult.trim().isNotEmpty) {
             fullParts.add(stripLeadingContextRepeat(chunkResult, tail));
             onChunkProgress?.call(fullParts.length, chunks.length);
@@ -144,6 +161,9 @@ class LlmClient {
       }
       yield joinChunkOutputs(fullParts);
     } finally {
+      if (identical(_activeClient, client)) {
+        _activeClient = null;
+      }
       if (ownsClient) {
         client.close();
       }
@@ -259,12 +279,18 @@ class LlmClient {
         return;
       } on TimeoutException catch (exc) {
         lastExc = exc;
+        if (_isCancel(isCancelled)) {
+          throw LlmCancelledException();
+        }
         if (attempt == 0) {
           continue;
         }
         rethrow;
       } on SocketException catch (exc) {
         lastExc = exc;
+        if (_isCancel(isCancelled)) {
+          throw LlmCancelledException();
+        }
         if (attempt == 0) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
@@ -272,12 +298,18 @@ class LlmClient {
         rethrow;
       } on http.ClientException catch (exc) {
         lastExc = exc;
+        if (_isCancel(isCancelled)) {
+          throw LlmCancelledException();
+        }
         if (attempt == 0) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
         }
         rethrow;
       } on LlmHttpException catch (exc) {
+        if (_isCancel(isCancelled)) {
+          throw LlmCancelledException();
+        }
         if (exc.statusCode >= 500 || exc.statusCode == 429) {
           lastExc = exc;
           if (attempt == 0) {
@@ -328,8 +360,10 @@ class LlmClient {
         'temperature': settings.temperature,
         'max_tokens': maxTokens,
         'stream': useStream,
-        'chat_template_kwargs': {'enable_thinking': false},
       };
+      if (settings.provider == 'local') {
+        body['chat_template_kwargs'] = {'enable_thinking': false};
+      }
     }
 
     final request = http.Request('POST', Uri.parse(url))
@@ -379,6 +413,10 @@ class LlmClient {
         }
         if (line.isEmpty) {
           continue;
+        }
+        final sseError = parseSseErrorMessage(line);
+        if (sseError != null) {
+          throw LlmHttpException(500, sseError);
         }
         final (contentPiece, reasoningPiece) = parseSseParts(line);
         if (contentPiece.isNotEmpty) {

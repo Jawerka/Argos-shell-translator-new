@@ -30,7 +30,7 @@
   "langFrom": "From",
   "langTo": "To",
   "langAuto": "AUTO",
-  "detectedLangTooltip": "Detected source language",
+  "detectedLangTooltip": "Detected language → actual target",
   "engineArgos": "Argos",
   "engineLlm": "LLM",
   "engineTabs": "Translation engine",
@@ -169,6 +169,7 @@
   "settingsStartMinimized": "Start minimized to tray",
   "settingsRestoreClipboard": "Restore clipboard after capture",
   "settingsCopyHideTray": "Copy and hide — minimize to tray",
+  "settingsTripleCopy": "Triple Ctrl+C pastes the copied text and translates",
   "settingsArgosAvailable": "Argos: available",
   "settingsArgosNoModels": "Argos: no models",
   "settingsArgosOffline": "Argos: no connection",
@@ -194,5 +195,6 @@
   "firstRunModelsHint": "Install the English ↔ Russian bundle.",
   "firstRunContinue": "Continue",
   "firstRunSkip": "Skip",
-  "firstRunDone": "Done"
+  "firstRunDone": "Готово",
+  "engineRestarting": "Engine is restarting…"
 }

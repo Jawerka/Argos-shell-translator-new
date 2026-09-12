@@ -98,6 +98,8 @@ class HintBanner extends StatelessWidget {
         return l10n.copied;
       case SessionHint.largeFile:
         return l10n.largeFileWarnHint;
+      case SessionHint.engineRestarting:
+        return l10n.engineRestarting;
     }
   }
 }

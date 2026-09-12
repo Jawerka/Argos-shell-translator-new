@@ -2,7 +2,7 @@
 ; Stage: dist/ArgosTranslate (Flutter Release + sidecar/ + argos_models/)
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "2.1.0"
 #endif
 #ifndef ReleaseDir
   #define ReleaseDir "..\..\dist\ArgosTranslate"

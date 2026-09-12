@@ -8,6 +8,8 @@ scripts\build-windows.ps1
 
 Результат: `dist/ArgosTranslate/` (`translator.exe`, `sidecar/argos_sidecar.exe`, не класть PyInstaller `_internal` в корень Flutter). Inno: `scripts/windows/argos-translate.iss` (`PrivilegesRequired=lowest`). Smoke: `python scripts/smoke_flutter_dist.py`.
 
+Flutter SDK ищется через PATH, `FLUTTER_ROOT`, `.fvm/flutter_sdk` или `%LOCALAPPDATA%\flutter` (`scripts/resolve-flutter.ps1`). Pin: `.fvmrc` → 3.44.0.
+
 Ниже — **legacy CustomTkinter** portable onedir (`ArgosTranslator.spec`).
 
 ## Требования

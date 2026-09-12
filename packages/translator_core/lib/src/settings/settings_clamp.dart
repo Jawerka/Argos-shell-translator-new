@@ -47,6 +47,7 @@ AppSettings clampAppSettings(AppSettings settings) {
       temperature: settings.llm.temperature.clamp(0.0, 2.0).toDouble(),
       maxTokens: settings.llm.maxTokens.clamp(64, 128000),
       timeoutSec: settings.llm.timeoutSec.clamp(5, 600),
+      healthCheckTtlSec: settings.llm.healthCheckTtlSec.clamp(5, 300),
       chunkMaxChars:
           settings.llm.chunkMaxChars < 500 ? 500 : settings.llm.chunkMaxChars,
       fileChunkMaxChars: settings.llm.fileChunkMaxChars < 500

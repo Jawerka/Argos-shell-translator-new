@@ -148,4 +148,40 @@ void main() {
     expect(loaded.llm.authHeader, 'auto');
     expect(loaded.behavior.closeAction, 'tray');
   });
+
+  test('unknown CTk fields round-trip via extras', () {
+    final settings = AppSettings.fromJson({
+      'version': 9,
+      'window': {
+        'theme': 'dark',
+        'monitor_hint': {'device': 'Dell', 'index': 1},
+      },
+      'ui': {
+        'first_run_done': true,
+        'settings_dialog': {'width': 720, 'height': 560},
+      },
+      'custom_top': {'keep': true},
+    });
+    expect(settings.window.extras['monitor_hint'], isA<Map<Object?, Object?>>());
+    expect((settings.uiExtras['settings_dialog'] as Map<Object?, Object?>)['width'], 720);
+    expect(settings.extras['custom_top'], isA<Map<Object?, Object?>>());
+
+    final json = settings.toJson();
+    final window = json['window'] as Map<Object?, Object?>;
+    expect(window['monitor_hint'], isA<Map<Object?, Object?>>());
+    final ui = json['ui'] as Map<Object?, Object?>;
+    expect((ui['settings_dialog'] as Map<Object?, Object?>)['width'], 720);
+    expect(json['custom_top'], isA<Map<Object?, Object?>>());
+  });
+
+  test('clamp health_check_ttl_sec', () {
+    final low = clampAppSettings(
+      const AppSettings(llm: LlmSettings(healthCheckTtlSec: 1)),
+    );
+    expect(low.llm.healthCheckTtlSec, 5);
+    final high = clampAppSettings(
+      const AppSettings(llm: LlmSettings(healthCheckTtlSec: 9999)),
+    );
+    expect(high.llm.healthCheckTtlSec, 300);
+  });
 }

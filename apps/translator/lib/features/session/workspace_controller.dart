@@ -45,6 +45,9 @@ class WorkspaceController extends Notifier<WorkspaceState> {
   int? _argosJobId;
   var _disposed = false;
   var _bundleInstallAttempted = false;
+  var _lastSourceText = '';
+  String? _pairCacheText;
+  Future<({String from, String to, String detected})>? _pairFuture;
 
   @override
   WorkspaceState build() {
@@ -88,7 +91,17 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       isArgosTab ? argosController.text : llmController.text;
 
   void _onSourceChanged() {
-    if (_suppressSource || _disposed) {
+    if (_disposed) {
+      return;
+    }
+    final text = sourceController.text;
+    if (text == _lastSourceText) {
+      return;
+    }
+    _lastSourceText = text;
+    _pairCacheText = null;
+    _pairFuture = null;
+    if (_suppressSource) {
       return;
     }
     final settings = ref.read(settingsProvider);
@@ -121,6 +134,7 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     }
     var languages = Map<String, String>.from(defaultLanguageNames);
     var hasModels = state.hasArgosModels;
+    var pairs = List<String>.from(state.argosPairs);
     try {
       final fetched = await client.languages();
       if (fetched.isNotEmpty) {
@@ -132,14 +146,17 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     try {
       final health = await client.getAuthenticatedHealth();
       hasModels = health.argos == true || health.pairs.isNotEmpty;
+      if (health.pairs.isNotEmpty) {
+        pairs = _pairStrings(health.pairs);
+      }
     } catch (e, st) {
       AppLog.warning('health refresh failed', e, st);
     }
     try {
       final models = await client.listModels();
       hasModels = hasModels || models.pairs.isNotEmpty;
-      if (!hasModels) {
-        hasModels = models.pairs.isNotEmpty;
+      if (models.pairs.isNotEmpty) {
+        pairs = _pairStrings(models.pairs);
       }
     } catch (e, st) {
       AppLog.warning('listModels failed', e, st);
@@ -147,7 +164,11 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     if (_disposed) {
       return;
     }
-    state = state.copyWith(languages: languages, hasArgosModels: hasModels);
+    state = state.copyWith(
+      languages: languages,
+      hasArgosModels: hasModels,
+      argosPairs: pairs,
+    );
     final settings = ref.read(settingsProvider);
     if (shouldInstallBundleOnStart(
           bundleModelsOnStart: settings.argos.bundleModelsOnStart,
@@ -191,8 +212,10 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     _llmGen++;
     _llmCancelled = true;
     _flushLlmUi();
+    ref.read(llmClientProvider).abort();
     final client = ref.read(sidecarClientProvider);
     if (client != null) {
+      client.abortInFlight();
       try {
         await client.cancel(jobId: _argosJobId);
       } catch (e, st) {
@@ -242,7 +265,7 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     state = state.copyWith(langTo: code);
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
-          settings.copyWith(langTo: code),
+          settings.copyWith(langTo: code, autoTargetLang: code),
         );
   }
 
@@ -251,11 +274,16 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       langFrom: state.langFrom,
       langTo: state.langTo,
       detectedLang: state.detectedLang,
+      resolvedTo: state.resolvedTo,
     );
     state = state.copyWith(langFrom: next.from, langTo: next.to);
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
-          settings.copyWith(langFrom: next.from, langTo: next.to),
+          settings.copyWith(
+            langFrom: next.from,
+            langTo: next.to,
+            autoTargetLang: next.to,
+          ),
         );
   }
 
@@ -345,13 +373,54 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     }
   }
 
+  /// Тройной Ctrl+C: текст уже в буфере, SendInput не нужен.
+  Future<void> captureFromTripleCopy({int? sequenceChanged}) async {
+    if (sequenceChanged != null && sequenceChanged <= 0) {
+      return;
+    }
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || _disposed) {
+      return;
+    }
+    if (!inFlutterTest()) {
+      await WindowShell.showAndFocus();
+    }
+    _suppressSource = true;
+    sourceController.text = text;
+    _suppressSource = false;
+    final settings = ref.read(settingsProvider);
+    final maxChars = settings.files.hotkeyAutoTranslateMaxChars;
+    if (maxChars <= 0 || text.length <= maxChars) {
+      await translateNow();
+    } else if (settings.streaming) {
+      _scheduleDebounced();
+    }
+  }
+
+  void markEngineRestarting() {
+    if (_disposed) {
+      return;
+    }
+    state = state.copyWith(hint: SessionHint.engineRestarting);
+  }
+
+  void markEngineReady() {
+    if (_disposed) {
+      return;
+    }
+    if (state.hint == SessionHint.engineRestarting) {
+      state = state.copyWith(hint: SessionHint.none);
+    }
+  }
+
   void clearSource() {
     _suppressSource = true;
     sourceController.clear();
     _suppressSource = false;
     unawaited(stop());
     if (!_disposed) {
-      state = state.copyWith(clearDetected: true);
+      state = state.copyWith(clearDetected: true, clearResolved: true);
     }
   }
 
@@ -579,15 +648,18 @@ class WorkspaceController extends Notifier<WorkspaceState> {
 
     final gen = ++_argosGen;
     _argosJobId = null;
+    client.abortInFlight();
     try {
       await client.cancel();
     } catch (_) {}
 
+    final pair = await _resolvePair(text);
+    if (gen != _argosGen || _disposed) {
+      return;
+    }
+
     sourceParaStarts = paragraphStartOffsets(text);
     _assembler.reset(0);
-    if (state.langFrom == 'auto') {
-      unawaited(_detectForChip(client, text, gen));
-    }
 
     state = state.copyWith(
       argosBusy: true,
@@ -596,12 +668,14 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       argosTotal: 0,
       clearArgosError: true,
       hasArgosParagraphAnchors: false,
+      detectedLang: pair.detected,
+      resolvedTo: pair.to,
     );
 
     final request = TranslateRequest(
       text: text,
-      fromCode: state.langFrom,
-      toCode: state.langTo,
+      fromCode: pair.from,
+      toCode: pair.to,
       preferApi: settings.argos.preferApiOverCli,
       translateCodeBlocks: settings.files.translateCodeBlocks,
       cache: settings.behavior.translationCacheEnabled,
@@ -631,23 +705,54 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     }
   }
 
-  Future<void> _detectForChip(
-    SidecarClient client,
+  Future<({String from, String to, String detected})> _resolvePair(
     String text,
-    int gen,
-  ) async {
-    try {
-      final result = await client.detect(text);
-      if (_disposed || gen != _argosGen) {
-        return;
-      }
-      final code = result.code;
-      if (code.isNotEmpty && code != 'auto') {
-        state = state.copyWith(detectedLang: code);
-      }
-    } catch (e, st) {
-      AppLog.warning('detect failed', e, st);
+  ) {
+    if (state.langFrom != 'auto') {
+      return Future.value(
+        (
+          from: state.langFrom,
+          to: state.langTo,
+          detected: state.langFrom,
+        ),
+      );
     }
+    if (_pairCacheText == text && _pairFuture != null) {
+      return _pairFuture!;
+    }
+    _pairCacheText = text;
+    _pairFuture = _detectAutoPair(text);
+    return _pairFuture!;
+  }
+
+  Future<({String from, String to, String detected})> _detectAutoPair(
+    String text,
+  ) async {
+    var detected = detectLanguageHeuristic(text);
+    final client = ref.read(sidecarClientProvider);
+    if (client != null) {
+      try {
+        final result = await client.detect(text);
+        if (result.code.isNotEmpty && result.code != 'auto') {
+          detected = result.code;
+        }
+      } catch (e, st) {
+        AppLog.warning('detect failed', e, st);
+      }
+    }
+    detected = snapDetectedLang(
+      detected,
+      hasCyrillic: containsCyrillic(text),
+      installedFromCodes: state.argosPairs,
+    );
+    final preferred = state.langTo.trim().isEmpty
+        ? ref.read(settingsProvider).autoTargetLang
+        : state.langTo;
+    final pair = resolveAutoPair(detected, preferred);
+    if (!_disposed) {
+      state = state.copyWith(detectedLang: pair.from, resolvedTo: pair.to);
+    }
+    return (from: pair.from, to: pair.to, detected: pair.from);
   }
 
   void _handleArgosEvent(TranslateEvent event) {
@@ -695,6 +800,9 @@ class WorkspaceController extends Notifier<WorkspaceState> {
           hasArgosParagraphAnchors: _assembler.hasParagraphAnchors,
         );
       case TranslateError():
+        AppLog.warning(
+          'Argos translate failed job_id=${event.jobId} ${event.message}',
+        );
         state = state.copyWith(
           argosBusy: false,
           argosStatus: EngineRunStatus.error,
@@ -754,6 +862,12 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     _llmBuffer = '';
     _llmUiTimer?.cancel();
     llmController.clear();
+    ref.read(llmClientProvider).abort();
+
+    final pair = await _resolvePair(text);
+    if (gen != _llmGen || _disposed) {
+      return;
+    }
 
     state = state.copyWith(
       llmBusy: true,
@@ -772,10 +886,8 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       await for (final token in client.translate(
         settings: llm,
         text: text,
-        fromCode: state.langFrom == 'auto'
-            ? (state.detectedLang ?? 'auto')
-            : state.langFrom,
-        toCode: state.langTo,
+        fromCode: pair.from,
+        toCode: pair.to,
         languages: languages,
         fileType: state.documentFileType,
         isCancelled: () => _llmCancelled || gen != _llmGen,
@@ -848,4 +960,12 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       selection: TextSelection.collapsed(offset: _llmBuffer.length),
     );
   }
+}
+
+List<String> _pairStrings(List<Object?> raw) {
+  return [
+    for (final item in raw)
+      if (item != null && item.toString().trim().isNotEmpty)
+        item.toString().trim(),
+  ];
 }

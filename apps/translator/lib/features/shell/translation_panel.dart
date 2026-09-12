@@ -51,6 +51,7 @@ class TranslationPanel extends ConsumerWidget {
                       busy: l10n.argosBusy,
                       done: l10n.argosDone,
                       error: l10n.argosError,
+                      tooltip: sessionState.visibleArgosError,
                     ),
                     const SizedBox(width: MockupLayout.headerControlsGap),
                     MockupCheckbox(
@@ -202,6 +203,20 @@ class _TranslationOverlay extends ConsumerWidget {
         if (busy || text.isNotEmpty) {
           return const SizedBox.shrink();
         }
+        if (isArgos) {
+          final err = session.visibleArgosError;
+          if (err != null) {
+            return IgnorePointer(
+              child: ColoredBox(
+                color: palette.input,
+                child: EmptyState(
+                  icon: Icons.error_outline,
+                  title: err,
+                ),
+              ),
+            );
+          }
+        }
         return IgnorePointer(
           child: ColoredBox(
             color: palette.input,
@@ -223,6 +238,7 @@ class _StatusBadge extends StatelessWidget {
     required this.busy,
     required this.done,
     required this.error,
+    this.tooltip,
   });
 
   final EngineRunStatus status;
@@ -230,6 +246,7 @@ class _StatusBadge extends StatelessWidget {
   final String busy;
   final String done;
   final String error;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -250,13 +267,18 @@ class _StatusBadge extends StatelessWidget {
         color = palette.danger;
         label = error;
     }
-    return Text(
+    Widget child = Text(
       label,
       style: TextStyle(
         fontSize: TranslatorPalette.fontSizeUi,
         color: color,
       ),
     );
+    final tip = tooltip?.trim() ?? '';
+    if (tip.isNotEmpty) {
+      child = Tooltip(message: tip, child: child);
+    }
+    return child;
   }
 }
 

@@ -99,7 +99,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get langAuto => 'AUTO';
 
   @override
-  String get detectedLangTooltip => 'Detected source language';
+  String get detectedLangTooltip => 'Detected language → actual target';
+
+  @override
+  String get engineRestarting => 'Engine is restarting…';
 
   @override
   String get engineArgos => 'Argos';
@@ -468,6 +471,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCopyHideTray => 'Copy and hide — minimize to tray';
 
   @override
+  String get settingsTripleCopy =>
+      'Triple Ctrl+C pastes the copied text and translates';
+
+  @override
   String get settingsArgosAvailable => 'Argos: available';
 
   @override
@@ -531,5 +538,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get firstRunSkip => 'Skip';
 
   @override
-  String get firstRunDone => 'Done';
+  String get firstRunDone => 'Готово';
 }

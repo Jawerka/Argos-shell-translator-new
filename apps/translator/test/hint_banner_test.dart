@@ -42,6 +42,7 @@ void main() {
     (SessionHint.noTranslation, 'Нет перевода для сохранения'),
     (SessionHint.installFailed, 'Не удалось установить модели'),
     (SessionHint.copied, 'Скопировано'),
+    (SessionHint.engineRestarting, 'Движок перезапускается…'),
     (
       SessionHint.largeFile,
       'Файл большой: автоперевод не запущен. Нажмите «Перевести» или «Повтор».',

@@ -14,4 +14,5 @@ export 'src/settings/settings_store.dart';
 export 'src/sidecar/languages.dart';
 export 'src/sidecar/sidecar_client.dart';
 export 'src/text/text_utils.dart';
+export 'src/utf8_lines.dart';
 export 'src/window/window_geometry.dart';

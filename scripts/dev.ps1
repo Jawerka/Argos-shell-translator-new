@@ -5,7 +5,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$FlutterBin = 'C:\Users\Masny\AppData\Local\flutter\bin'
+. (Join-Path $PSScriptRoot 'resolve-flutter.ps1')
+$FlutterBin = Resolve-FlutterBin -RepoRoot $RepoRoot
+if (-not $FlutterBin) {
+  throw 'Flutter SDK not found. Install Flutter, add it to PATH, or set FLUTTER_ROOT.'
+}
 $env:Path = "$FlutterBin;" + $env:Path
 
 Set-Location $RepoRoot

@@ -74,6 +74,30 @@ Map<String, dynamic>? parseSidecarReadyJson(String source) {
   }
 }
 
+class SidecarRestartBudget {
+  SidecarRestartBudget({
+    this.maxAttempts = 3,
+    this.window = const Duration(minutes: 1),
+  });
+
+  final int maxAttempts;
+  final Duration window;
+  final _times = <DateTime>[];
+
+  /// null — лимит исчерпан; иначе пауза перед следующим spawn.
+  Duration? nextDelay(DateTime now) {
+    _times.removeWhere((t) => now.difference(t) >= window);
+    if (_times.length >= maxAttempts) {
+      return null;
+    }
+    final attempt = _times.length;
+    _times.add(now);
+    return Duration(milliseconds: 250 * (1 << attempt));
+  }
+
+  void reset() => _times.clear();
+}
+
 class SidecarProcess {
   SidecarProcess({this.disabled = false});
 
@@ -86,6 +110,11 @@ class SidecarProcess {
 
   final bool disabled;
   SidecarSession? _session;
+  var _stopping = false;
+  final _restart = SidecarRestartBudget();
+  void Function(SidecarSession? session)? onSessionChanged;
+  void Function()? onRestarting;
+  void Function(Object error)? onRestartFailed;
 
   SidecarSession? get session => _session;
 
@@ -94,14 +123,26 @@ class SidecarProcess {
       AppLog.info('Sidecar skipped');
       return null;
     }
+    _stopping = false;
+    _restart.reset();
+    return _spawn(packagesDir: packagesDir, watchExit: true);
+  }
 
+  Future<SidecarSession?> _spawn({
+    required String? packagesDir,
+    required bool watchExit,
+  }) async {
     final token = _randomToken();
-    final resolved = _resolveLaunch(token, packagesDir: packagesDir);
+    final resolved = _resolveLaunch(
+      packagesDir: packagesDir,
+      parentPid: pid,
+    );
     AppLog.info('Starting sidecar: ${resolved.executable} ${resolved.arguments.join(' ')}');
 
     final environment = Map<String, String>.from(Platform.environment)
       ..['PYTHONUNBUFFERED'] = '1'
-      ..['PYTHONIOENCODING'] = 'utf-8';
+      ..['PYTHONIOENCODING'] = 'utf-8'
+      ..['ARGOS_SIDECAR_TOKEN'] = token;
     final pythonPath = _pythonPath(resolved.workingDirectory);
     if (pythonPath != null) {
       environment['PYTHONPATH'] = pythonPath;
@@ -115,18 +156,25 @@ class SidecarProcess {
       includeParentEnvironment: true,
     );
 
-    final stderrBuf = StringBuffer();
-    process.stderr.transform(utf8.decoder).listen(stderrBuf.write);
+    var stderrLines = 0;
+    process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      if (line.trim().isEmpty || stderrLines >= 200) {
+        return;
+      }
+      stderrLines++;
+      AppLog.warning('sidecar stderr: $line');
+    });
 
     late final Map<String, dynamic> ready;
     try {
-      ready = await _awaitReady(process, stderrBuf);
+      ready = await _awaitReady(process);
     } on SidecarSpawnException {
       process.kill();
       rethrow;
     }
 
     final port = (ready['port'] as num).toInt();
+    _deleteReadyFile(process.pid);
     final session = SidecarSession(port: port, token: token, process: process);
     _session = session;
 
@@ -147,15 +195,49 @@ class SidecarProcess {
     } finally {
       client.close();
     }
+    if (watchExit) {
+      _watchExit(process, packagesDir: packagesDir);
+    }
+    onSessionChanged?.call(session);
     return session;
   }
 
+  void _watchExit(Process process, {String? packagesDir}) {
+    unawaited(process.exitCode.then((code) async {
+      _deleteReadyFile(process.pid);
+      if (_stopping) {
+        return;
+      }
+      AppLog.warning('sidecar exited unexpectedly with code $code');
+      onRestarting?.call();
+      final delay = _restart.nextDelay(DateTime.now());
+      if (delay == null) {
+        onRestartFailed?.call(
+          SidecarSpawnException('sidecar падал слишком часто'),
+        );
+        return;
+      }
+      await Future<void>.delayed(delay);
+      if (_stopping) {
+        return;
+      }
+      try {
+        await _spawn(packagesDir: packagesDir, watchExit: true);
+      } catch (e, st) {
+        AppLog.error('sidecar restart failed', e, st);
+        onRestartFailed?.call(e);
+      }
+    }));
+  }
+
   Future<void> stop() async {
+    _stopping = true;
     final process = _session?.process;
     _session = null;
     if (process == null) {
       return;
     }
+    _deleteReadyFile(process.pid);
     try {
       process.kill();
       await process.exitCode.timeout(const Duration(seconds: 3));
@@ -166,12 +248,18 @@ class SidecarProcess {
     }
   }
 
-  _LaunchSpec _resolveLaunch(String token, {String? packagesDir}) {
+  _LaunchSpec _resolveLaunch({
+    String? packagesDir,
+    int? parentPid,
+  }) {
     final envBin = Platform.environment['ARGOS_SIDECAR_BIN'];
     if (envBin != null && envBin.isNotEmpty) {
       return _LaunchSpec(
         executable: envBin,
-        arguments: buildSidecarLaunchArgs(token: token, packagesDir: packagesDir),
+        arguments: buildSidecarLaunchArgs(
+          packagesDir: packagesDir,
+          parentPid: parentPid,
+        ),
         workingDirectory: File(envBin).parent.path,
       );
     }
@@ -181,7 +269,10 @@ class SidecarProcess {
     if (frozen != null) {
       return _LaunchSpec(
         executable: frozen.path,
-        arguments: buildSidecarLaunchArgs(token: token, packagesDir: packagesDir),
+        arguments: buildSidecarLaunchArgs(
+          packagesDir: packagesDir,
+          parentPid: parentPid,
+        ),
         workingDirectory: frozen.parent.path,
       );
     }
@@ -204,37 +295,45 @@ class SidecarProcess {
         '-u',
         '-m',
         'sidecar',
-        ...buildSidecarLaunchArgs(token: token, packagesDir: packagesDir),
+        ...buildSidecarLaunchArgs(
+          packagesDir: packagesDir,
+          parentPid: parentPid,
+        ),
       ],
       workingDirectory: repoRoot.path,
     );
   }
 }
 
-/// Аргументы CLI sidecar (для spawn и тестов).
+/// Аргументы CLI sidecar (для spawn и тестов). Токен — через ARGOS_SIDECAR_TOKEN.
 List<String> buildSidecarLaunchArgs({
-  required String token,
+  String? token,
   String? packagesDir,
+  int? parentPid,
 }) {
   final args = <String>[
     '--host',
     '127.0.0.1',
     '--port',
     '0',
-    '--token',
-    token,
   ];
+  if (token != null && token.isNotEmpty) {
+    args.addAll(['--token', token]);
+  }
   final dir = packagesDir?.trim() ?? '';
   if (dir.isNotEmpty) {
     args.addAll(['--packages-dir', dir]);
+  }
+  if (parentPid != null && parentPid > 0) {
+    args.addAll(['--parent-pid', '$parentPid']);
   }
   return args;
 }
 
 Future<Map<String, dynamic>> _awaitReady(
   Process process,
-  StringBuffer stderrBuf,
 ) async {
+  final stderrBuf = StringBuffer();
   final ready = Completer<Map<String, dynamic>>();
 
   void completeFromFile() {
@@ -311,6 +410,15 @@ Future<Map<String, dynamic>> _awaitReady(
   } finally {
     poll.cancel();
   }
+}
+
+void _deleteReadyFile(int processPid) {
+  try {
+    final file = sidecarReadyFile(processPid);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  } catch (_) {}
 }
 
 String? _pythonPath(String workingDirectory) {

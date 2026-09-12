@@ -1,14 +1,14 @@
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-
-$FlutterBin = 'C:\Users\Masny\AppData\Local\flutter\bin'
-$Flutter = Join-Path $FlutterBin 'flutter.bat'
+. (Join-Path $PSScriptRoot 'resolve-flutter.ps1')
+$FlutterBin = Resolve-FlutterBin -RepoRoot $RepoRoot
+$Flutter = if ($FlutterBin) { Join-Path $FlutterBin 'flutter.bat' } else { $null }
 $Py310 = 'C:\Program Files\Python310\python.exe'
 $VenvPy = Join-Path $RepoRoot 'venv\Scripts\python.exe'
 
 Write-Host "Repo:     $RepoRoot"
 Write-Host "Flutter:  $Flutter"
-if (Test-Path $Flutter) {
+if ($Flutter -and (Test-Path $Flutter)) {
   & $Flutter --version
 } else {
   Write-Host 'Flutter SDK not found at the expected path.'

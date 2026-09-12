@@ -153,7 +153,9 @@ class _MainSplitState extends ConsumerState<MainSplit> {
             control: true, shift: true): () => unawaited(_session.saveBoth()),
         const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
             openSettingsPage(context),
-        const _AltShiftActivator(): () => unawaited(_session.swapLanguages()),
+        const SingleActivator(LogicalKeyboardKey.keyX,
+            control: true, shift: true): () =>
+            unawaited(_session.swapLanguages()),
       },
       child: Focus(
         autofocus: true,
@@ -219,29 +221,4 @@ class _MainSplitState extends ConsumerState<MainSplit> {
       ),
     );
   }
-}
-
-class _AltShiftActivator extends ShortcutActivator {
-  const _AltShiftActivator();
-
-  @override
-  bool accepts(KeyEvent event, HardwareKeyboard state) {
-    if (event is! KeyDownEvent) {
-      return false;
-    }
-    final key = event.logicalKey;
-    final isAlt = key == LogicalKeyboardKey.alt ||
-        key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight;
-    final isShift = key == LogicalKeyboardKey.shift ||
-        key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight;
-    if (!isAlt && !isShift) {
-      return false;
-    }
-    return state.isAltPressed && state.isShiftPressed;
-  }
-
-  @override
-  String debugDescribeKeys() => 'Alt+Shift';
 }

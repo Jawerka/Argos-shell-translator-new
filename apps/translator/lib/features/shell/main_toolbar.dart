@@ -194,9 +194,13 @@ class _LanguageCenter extends ConsumerWidget {
     }
 
     final detected = sessionState.detectedLang;
+    final resolvedTo = sessionState.resolvedTo ?? sessionState.langTo;
     final showChip = sessionState.langFrom == 'auto' &&
         detected != null &&
         detected.isNotEmpty;
+    final chipLabel = showChip
+        ? '${detected.toUpperCase()} → ${resolvedTo.toUpperCase()}'
+        : '';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -229,7 +233,7 @@ class _LanguageCenter extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(TranslatorPalette.radiusControl),
               ),
               child: Text(
-                detected.toUpperCase(),
+                chipLabel,
                 style: TextStyle(
                   fontSize: TranslatorPalette.fontSizeUi,
                   fontWeight: FontWeight.w700,

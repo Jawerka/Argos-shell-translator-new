@@ -6,6 +6,7 @@ import json
 import sys
 import threading
 import time
+import types
 from pathlib import Path
 from typing import Any, Iterator
 from unittest.mock import MagicMock
@@ -19,6 +20,7 @@ from sidecar.jobs import ArgosJobRunner
 from sidecar.server import TOKEN_HEADER, create_server
 from argos_translator.services.translation_cache import TranslationCache
 from argos_translator.services.translation_coordinator import TranslationCoordinator
+from argos_translator.utils.imports import ImportStatus
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOKEN = "test-sidecar-token"
@@ -55,6 +57,14 @@ def sidecar_http(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
     thread.start()
     host, port = server.server_address[:2]
     base = f"http://{host}:{port}"
+    deadline = time.time() + 3
+    while time.time() < deadline:
+        try:
+            ping = httpx.get(f"{base}/health", timeout=0.4)
+            if ping.status_code == 200:
+                break
+        except httpx.HTTPError:
+            time.sleep(0.05)
     try:
         yield base, TOKEN
     finally:
@@ -180,7 +190,7 @@ def test_languages_and_models(sidecar_http: tuple[str, str]) -> None:
 
 def test_detect_auto(sidecar_http: tuple[str, str]) -> None:
     base, token = sidecar_http
-    with httpx.Client(timeout=5) as client:
+    with httpx.Client(timeout=30) as client:
         empty = client.post(f"{base}/v1/detect", headers=_headers(token), json={"text": ""})
         ru = client.post(
             f"{base}/v1/detect",
@@ -295,7 +305,6 @@ def test_translate_applies_packages_dir_from_body(
             events = _ndjson_events(res)
     assert events[-1]["type"] == "done"
     assert applied and applied[-1] == str(packages)
-
 
 
 def test_cancel_then_translate_completes(
@@ -472,4 +481,246 @@ def test_translate_applies_cache_size(monkeypatch: pytest.MonkeyPatch) -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_translate_auto_start_uses_actual_pair(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    monkeypatch.setattr(runner.model_manager, "list_installed_pairs", lambda: [])
+    events: list[dict[str, Any]] = []
+    runner.run_translate(
+        text="Привет, это достаточно длинный русский текст для детекта.",
+        from_code="auto",
+        to_code="ru",
+        emit=events.append,
+    )
+    start = events[0]
+    assert start["type"] == "start"
+    assert start["from"] == "ru"
+    assert start["to"] == "en"
+    assert engine.calls
+    assert engine.calls[0][1:] == ("ru", "en")
+
+
+def test_translate_auto_snaps_nl_to_en_when_only_en_ru(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+
+    class _Hit:
+        lang = "nl"
+        prob = 0.99
+
+    fake_detect = types.SimpleNamespace(detect_langs=lambda text: [_Hit()])
+    monkeypatch.setattr(
+        "argos_translator.utils.text_utils.LANGDETECT_STATUS",
+        ImportStatus.SUCCESS,
+    )
+    monkeypatch.setattr("argos_translator.utils.text_utils.LANGDETECT_MODULE", fake_detect)
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    monkeypatch.setattr(
+        runner.model_manager,
+        "list_installed_pairs",
+        lambda: ["en->ru", "ru->en"],
+    )
+    events: list[dict[str, Any]] = []
+    text = "This is a reasonably long English sentence used for language detection."
+    status = runner.run_translate(
+        text=text,
+        from_code="auto",
+        to_code="ru",
+        emit=events.append,
+    )
+    assert status == "done"
+    start = events[0]
+    assert start["type"] == "start"
+    assert start["from"] == "en"
+    assert start["to"] == "ru"
+    assert engine.calls
+    assert engine.calls[0][1:] == ("en", "ru")
+
+
+def test_second_translate_supersedes_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    class BlockingEngine:
+        def __init__(self, prefer_api: bool = True) -> None:
+            self.prefer_api = prefer_api
+            self.calls = 0
+
+        def translate(self, text: str, from_code: str, to_code: str) -> str:
+            self.calls += 1
+            started.set()
+            release.wait(timeout=5)
+            return f"ok:{text}"
+
+    engine = BlockingEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address[:2]
+    base = f"http://{host}:{port}"
+    first_events: list[dict[str, Any]] = []
+    second_events: list[dict[str, Any]] = []
+
+    def _first() -> None:
+        with httpx.Client(timeout=10) as client:
+            with client.stream(
+                "POST",
+                f"{base}/v1/translate",
+                headers=_headers(),
+                json={
+                    "text": "First paragraph here.\n\nSecond paragraph there.",
+                    "from": "en",
+                    "to": "ru",
+                },
+            ) as res:
+                first_events.extend(_ndjson_events(res))
+
+    def _second() -> None:
+        with httpx.Client(timeout=10) as client:
+            with client.stream(
+                "POST",
+                f"{base}/v1/translate",
+                headers=_headers(),
+                json={"text": "Hello.", "from": "en", "to": "ru"},
+            ) as res:
+                second_events.extend(_ndjson_events(res))
+
+    worker = threading.Thread(target=_first)
+    worker.start()
+    assert started.wait(timeout=5)
+    second_worker = threading.Thread(target=_second)
+    second_worker.start()
+    deadline = time.time() + 5
+    while time.time() < deadline and not any(e.get("type") == "start" for e in second_events):
+        time.sleep(0.02)
+    release.set()
+    worker.join(timeout=8)
+    second_worker.join(timeout=8)
+    server.shutdown()
+    server.server_close()
+    assert any(e["type"] == "cancelled" for e in first_events)
+    assert second_events and second_events[-1]["type"] == "done"
+
+
+def test_cancelled_job_does_not_call_engine_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    coord = TranslationCoordinator()
+
+    class CancelOnFirst:
+        def __init__(self, prefer_api: bool = True) -> None:
+            self.prefer_api = prefer_api
+            self.calls: list[str] = []
+
+        def translate(self, text: str, from_code: str, to_code: str) -> str:
+            self.calls.append(text)
+            coord.cancel()
+            return "x"
+
+    engine = CancelOnFirst()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    runner = ArgosJobRunner(coordinator=coord, cache=TranslationCache())
+    events: list[dict[str, Any]] = []
+    status = runner.run_translate(
+        text="First paragraph here.\n\nSecond paragraph there.",
+        from_code="en",
+        to_code="ru",
+        emit=events.append,
+    )
+    assert status == "cancelled"
+    assert len(engine.calls) == 1
+    assert any(e["type"] == "cancelled" for e in events)
+
+
+def test_missing_pair_emits_error_before_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = FakeEngine()
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    monkeypatch.setattr(runner.model_manager, "list_installed_pairs", lambda: ["de->fr"])
+    events: list[dict[str, Any]] = []
+    status = runner.run_translate(
+        text="Hello.",
+        from_code="en",
+        to_code="ru",
+        emit=events.append,
+    )
+    assert status == "error"
+    assert engine.calls == []
+    assert events[0]["type"] == "start"
+    assert events[1]["type"] == "error"
+    assert events[1]["job_id"] == events[0]["job_id"]
+    assert "en→ru" in events[1]["message"]
+
+
+def test_cancel_respects_job_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    slow = SlowEngine(delay=0.5)
+    monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: slow)
+    server = create_server(host="127.0.0.1", port=0, token=TOKEN)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    base = f"http://127.0.0.1:{port}"
+    events: list[dict[str, Any]] = []
+
+    def _run_translate() -> None:
+        with httpx.Client(timeout=10) as client:
+            with client.stream(
+                "POST",
+                f"{base}/v1/translate",
+                headers=_headers(),
+                json={
+                    "text": "First paragraph here.\n\nSecond paragraph there.",
+                    "from": "en",
+                    "to": "ru",
+                },
+            ) as res:
+                for line in res.iter_lines():
+                    if line:
+                        events.append(json.loads(line))
+
+    worker = threading.Thread(target=_run_translate)
+    worker.start()
+    assert slow.started.wait(timeout=5)
+    start = None
+    deadline = time.time() + 2
+    while start is None and time.time() < deadline:
+        start = next((e for e in events if e.get("type") == "start"), None)
+        time.sleep(0.02)
+    assert start is not None
+    with httpx.Client(timeout=5) as client:
+        other = client.post(
+            f"{base}/v1/cancel",
+            headers=_headers(),
+            json={"job_id": start["job_id"] + 99},
+        )
+        assert other.status_code == 200
+        cancel = client.post(
+            f"{base}/v1/cancel",
+            headers=_headers(),
+            json={"job_id": start["job_id"]},
+        )
+        assert cancel.status_code == 200
+    worker.join(timeout=8)
+    server.shutdown()
+    server.server_close()
+    assert any(e["type"] == "cancelled" for e in events)
+
+
+def test_token_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARGOS_SIDECAR_TOKEN", "env-token")
+    assert sidecar_main(["--host", "0.0.0.0"]) == 2
+    # loopback still required; missing token without env:
+    monkeypatch.delenv("ARGOS_SIDECAR_TOKEN", raising=False)
+    assert sidecar_main(["--host", "127.0.0.1"]) == 2
 

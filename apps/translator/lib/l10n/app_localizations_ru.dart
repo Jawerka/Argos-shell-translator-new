@@ -99,7 +99,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get langAuto => 'AUTO';
 
   @override
-  String get detectedLangTooltip => 'Определён язык исходника';
+  String get detectedLangTooltip => 'Определённый язык → фактическая цель';
+
+  @override
+  String get engineRestarting => 'Движок перезапускается…';
 
   @override
   String get engineArgos => 'Argos';
@@ -468,6 +471,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsCopyHideTray => 'Копировать и скрыть — сворачивать в трей';
+
+  @override
+  String get settingsTripleCopy =>
+      'Тройной Ctrl+C вставляет выделенный текст и переводит';
 
   @override
   String get settingsArgosAvailable => 'Argos: доступен';

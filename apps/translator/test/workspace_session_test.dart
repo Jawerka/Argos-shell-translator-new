@@ -74,7 +74,7 @@ void main() {
     expect(container.read(workspaceProvider).langFrom, 'auto');
     expect(container.read(workspaceProvider).detectedLang, 'en');
     expect(find.byKey(const Key('detected-lang')), findsOneWidget);
-    expect(find.text('EN'), findsOneWidget);
+    expect(find.text('EN → RU'), findsOneWidget);
   });
 
   testWidgets('streaming debounce waits before Argos call', (tester) async {
@@ -174,6 +174,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(workspaceProvider).argosStatus, EngineRunStatus.error);
     expect(find.text('Argos ошибка'), findsOneWidget);
+  });
+
+  testWidgets('Argos missing pair shows error overlay and tooltip', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar(
+      FakeSidecarOptions(translateMode: FakeTranslateMode.missingPair),
+    );
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings,
+      sidecar: sidecar,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Hello world';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).argosStatus, EngineRunStatus.error);
+    expect(container.read(workspaceProvider).argosError, 'Нет модели nl→ru');
+    expect(find.text('Argos ошибка'), findsOneWidget);
+    expect(find.text('Нет модели nl→ru'), findsOneWidget);
+    expect(find.byTooltip('Нет модели nl→ru'), findsOneWidget);
+    expect(find.text('Введите текст слева'), findsNothing);
   });
 
   testWidgets('Stop after Argos chunk keeps text and clears busy', (
@@ -392,5 +415,177 @@ void main() {
     session.clearTranslation();
     await tester.pump();
     expect(session.argosController.text, isEmpty);
+  });
+
+  testWidgets('selection change does not retrigger translate', (tester) async {
+    final sidecar = fakeSidecar();
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings.copyWith(
+        streaming: true,
+        debounceMs: 80,
+      ),
+      sidecar: sidecar,
+    );
+    await tester.enterText(
+      find.byKey(const Key('source-editor')),
+      'Hello world',
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pumpAndSettle();
+    final calls = sidecar.fakeState.translateCalls;
+    expect(calls, greaterThan(0));
+
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateCalls, calls);
+  });
+
+  testWidgets('AUTO russian text sends ru→en to Argos and LLM', (tester) async {
+    final sidecar = fakeSidecar(FakeSidecarOptions(detectCode: 'ru'));
+    final llm = FakeLlmClient();
+    final container = await pumpApp(
+      tester,
+      settings: const AppSettings(
+        firstRunDone: true,
+        langFrom: 'auto',
+        langTo: 'ru',
+        llm: LlmSettings(
+          enabled: true,
+          provider: 'local',
+          baseUrl: 'http://127.0.0.1:8080/v1',
+          model: 'test',
+        ),
+      ),
+      sidecar: sidecar,
+      llm: llm,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Привет, это достаточно длинный текст';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+
+    expect(sidecar.fakeState.translateBodies, isNotEmpty);
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+    expect(llm.lastFromCode, 'ru');
+    expect(llm.lastToCode, 'en');
+    expect(container.read(workspaceProvider).detectedLang, 'ru');
+    expect(find.text('RU → EN'), findsOneWidget);
+  });
+
+  testWidgets('AUTO english with detect=nl snaps to EN → RU', (tester) async {
+    final sidecar = fakeSidecar(
+      FakeSidecarOptions(
+        detectCode: 'nl',
+        pairs: const ['en->ru', 'ru->en'],
+      ),
+    );
+    final llm = FakeLlmClient();
+    final container = await pumpApp(
+      tester,
+      settings: const AppSettings(
+        firstRunDone: true,
+        langFrom: 'auto',
+        langTo: 'ru',
+        llm: LlmSettings(
+          enabled: true,
+          provider: 'local',
+          baseUrl: 'http://127.0.0.1:8080/v1',
+          model: 'test',
+        ),
+      ),
+      sidecar: sidecar,
+      llm: llm,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text =
+        'This is a reasonably long English sentence used for language detection.';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+
+    expect(sidecar.fakeState.translateBodies, isNotEmpty);
+    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
+    expect(llm.lastFromCode, 'en');
+    expect(llm.lastToCode, 'ru');
+    expect(container.read(workspaceProvider).detectedLang, 'en');
+    expect(find.text('EN → RU'), findsOneWidget);
+  });
+
+  testWidgets('translateNow starts Argos and LLM together', (tester) async {
+    final sidecar = fakeSidecar();
+    final llm = FakeLlmClient();
+    final container = await pumpApp(
+      tester,
+      settings: const AppSettings(
+        firstRunDone: true,
+        llm: LlmSettings(
+          enabled: true,
+          provider: 'local',
+          baseUrl: 'http://127.0.0.1:8080/v1',
+          model: 'test',
+        ),
+      ),
+      sidecar: sidecar,
+      llm: llm,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Hello world from both engines';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateCalls, greaterThan(0));
+    expect(llm.translateCalls, greaterThan(0));
+  });
+
+  testWidgets('Ctrl+Shift+X swaps languages, Alt+Shift does not', (tester) async {
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings.copyWith(langFrom: 'en', langTo: 'ru'),
+      sidecar: fakeSidecar(),
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).langFrom, 'ru');
+    expect(container.read(workspaceProvider).langTo, 'en');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).langFrom, 'ru');
+    expect(container.read(workspaceProvider).langTo, 'en');
+  });
+
+  testWidgets('Ctrl+Enter and Esc work while source editor is focused', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar();
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings,
+      sidecar: sidecar,
+    );
+    await tester.tap(find.byKey(const Key('source-editor')));
+    await tester.enterText(
+      find.byKey(const Key('source-editor')),
+      'Hello world',
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateCalls, greaterThan(0));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).argosBusy, isFalse);
   });
 }

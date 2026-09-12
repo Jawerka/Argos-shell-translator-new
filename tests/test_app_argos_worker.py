@@ -12,6 +12,7 @@ def test_translate_worker_cache_hit(mock_translator_app) -> None:
     app.settings.behavior.translation_cache_enabled = True
     app._translation_cache.put("hello", "en", "ru", "привет")
     app.engine.translate = MagicMock(return_value="should not be called")
+    app.coord.start_argos(1, 1)
 
     TranslatorApp._translate_worker(app, 1, [("hello", 0, True)], "en", "ru")
 
@@ -25,6 +26,7 @@ def test_translate_worker_cache_miss(mock_translator_app) -> None:
     app = mock_translator_app
     app.settings.behavior.translation_cache_enabled = True
     app.engine.translate = MagicMock(return_value="translated")
+    app.coord.start_argos(1, 1)
 
     TranslatorApp._translate_worker(app, 1, [("hello", 0, True)], "en", "ru")
 
@@ -38,6 +40,7 @@ def test_translate_worker_non_translatable_passthrough(mock_translator_app) -> N
     code = "```python\nprint(1)\n```"
     app.engine.translate = MagicMock()
 
+    app.coord.start_argos(1, 1)
     TranslatorApp._translate_worker(app, 1, [(code, 0, False)], "en", "ru")
 
     _, _, output, _ = app.translate_queue.get_nowait()
@@ -66,6 +69,7 @@ def test_translate_worker_stops_when_superseded(mock_translator_app) -> None:
 def test_translate_worker_chunk_error_queued(mock_translator_app) -> None:
     app = mock_translator_app
     app.engine.translate = MagicMock(side_effect=RuntimeError("backend down"))
+    app.coord.start_argos(1, 1)
 
     TranslatorApp._translate_worker(app, 1, [("hello", 0, True)], "en", "ru")
 
