@@ -23,6 +23,7 @@ from argos_translator.services.frozen_bootstrap import configure_argos_package_d
 from argos_translator.services.model_manager import ModelManager
 from argos_translator.services.translation_cache import TranslationCache
 from argos_translator.services.translation_coordinator import TranslationCoordinator
+from argos_translator.utils.detect_log import detect_info, peek_words
 from sidecar import __version__ as SIDECAR_VERSION
 
 logger = logging.getLogger("ArgosStreaming")
@@ -160,8 +161,11 @@ def _handle(
     if path == "/v1/detect" and method == "POST":
         body = _read_json(handler)
         text = str(body.get("text") or "")
+        peek = peek_words(text)
+        detect_info("fn=http_detect begin peek=%r len=%s", peek, len(text.strip()))
         code = state.runner.detect(text)
         label = DefaultLanguages.LANGUAGES.get(code, code)
+        detect_info("fn=http_detect end peek=%r code=%s label=%s", peek, code, label)
         _send(handler, *_json_bytes({"code": code, "label": label}))
         return
 

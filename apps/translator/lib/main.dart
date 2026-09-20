@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/app_log.dart';
+import 'core/detect_log.dart';
 import 'platform/desktop_shell.dart';
 import 'platform/instance_agent.dart';
 import 'platform/llm_key_store.dart';
@@ -18,6 +19,7 @@ import 'providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppLog.setup();
+  await DetectLog.setup();
 
   if (!kIsWeb && Platform.isWindows && !inWidgetTest) {
     await startInstanceAgentOrHandoff();

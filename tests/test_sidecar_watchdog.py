@@ -79,3 +79,25 @@ def test_sidecar_file_log_created(tmp_path: Path, monkeypatch) -> None:
     assert log_file.exists()
     text = log_file.read_text(encoding="utf-8")
     assert "sidecar boot" in text
+    assert "DETECT path=" in text
+
+    detect = logging.getLogger("ArgosDetect")
+    detect.info("probe=ok")
+    for handler in detect.handlers:
+        handler.flush()
+    detect_file = tmp_path / "log" / "detect.log"
+    assert detect_file.exists()
+    detect_text = detect_file.read_text(encoding="utf-8")
+    assert "DETECT" in detect_text
+    assert "probe=ok" in detect_text or "path=" in detect_text
+
+
+def test_detect_log_respects_env(tmp_path: Path, monkeypatch) -> None:
+    custom = tmp_path / "custom" / "detect.log"
+    monkeypatch.setenv("ARGOS_DETECT_LOG", str(custom))
+    from sidecar.logging_setup import resolve_detect_log_path, setup_detect_file_log
+
+    assert resolve_detect_log_path() == custom
+    path = setup_detect_file_log()
+    assert path == custom
+    assert custom.exists()

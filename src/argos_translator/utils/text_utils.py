@@ -4,19 +4,74 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from argos_translator.config.constants import TranslationConstants
-from argos_translator.utils.imports import LANGDETECT_MODULE, LANGDETECT_STATUS, ImportStatus
+from argos_translator.utils.detect_log import detect_info, peek_words
+from argos_translator.utils.imports import LINGUA_MODULE, LINGUA_STATUS, ImportStatus
 
 logger = logging.getLogger("ArgosStreaming")
 
-# Короткие фразы langdetect часто путает (en↔nl, ru↔bg); ниже порога — только по алфавиту.
-_MIN_LANGDETECT_CHARS = 20
-_MIN_LANGDETECT_PROB = 0.85
+# 1–2 символа слишком мало даже для Lingua; ниже порога confidence — эвристика.
+_MIN_LINGUA_CHARS = 3
+_MIN_LINGUA_CONFIDENCE = 0.5
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 _CYRILLIC_LANGS = frozenset({"ru", "bg", "uk", "mk", "sr", "be", "kk"})
 _DEFAULT_FROM_CODES = frozenset({"en", "ru"})
+
+# Кэш детекторов: frozenset(iso) → detector
+_lingua_detectors: dict[frozenset[str], Any] = {}
+
+
+def _lingua_language_for_code(code: str) -> Any | None:
+    """ISO-639-1 → Language enum Lingua, либо None если код неизвестен."""
+    if LINGUA_MODULE is None:
+        return None
+    iso_cls = getattr(LINGUA_MODULE, "IsoCode639_1", None)
+    language_cls = getattr(LINGUA_MODULE, "Language", None)
+    if iso_cls is None or language_cls is None:
+        return None
+    iso = getattr(iso_cls, code.upper(), None)
+    if iso is None:
+        return None
+    try:
+        return language_cls.from_iso_code_639_1(iso)
+    except Exception:
+        return None
+
+
+def _get_lingua_detector(codes: frozenset[str]) -> Any | None:
+    """Ленивый singleton LanguageDetector для набора установленных from-кодов."""
+    if LINGUA_STATUS != ImportStatus.SUCCESS or LINGUA_MODULE is None:
+        return None
+    key = codes if codes else frozenset(_DEFAULT_FROM_CODES)
+    cached = _lingua_detectors.get(key)
+    if cached is not None:
+        return cached
+
+    languages: list[Any] = []
+    for code in sorted(key):
+        lang = _lingua_language_for_code(code)
+        if lang is not None:
+            languages.append(lang)
+    if not languages:
+        for code in sorted(_DEFAULT_FROM_CODES):
+            lang = _lingua_language_for_code(code)
+            if lang is not None:
+                languages.append(lang)
+    if not languages:
+        return None
+
+    builder_cls = getattr(LINGUA_MODULE, "LanguageDetectorBuilder", None)
+    if builder_cls is None:
+        return None
+    try:
+        detector = builder_cls.from_languages(*languages).build()
+    except Exception as exc:
+        logger.debug("lingua detector build failed: %s", exc)
+        return None
+    _lingua_detectors[key] = detector
+    return detector
 
 
 class TextUtils:
@@ -90,7 +145,9 @@ class TextUtils:
         installed_from_codes: Optional[Iterable[str]] = None,
     ) -> str:
         text = (text or "").strip()
+        peek = peek_words(text)
         if not text:
+            detect_info("fn=detect_language branch=empty peek=%r final=en", peek)
             return "en"
 
         cyrillic = TextUtils.has_cyrillic(text)
@@ -103,31 +160,102 @@ class TextUtils:
                 installed_from_codes=installed_from_codes,
             )
 
-        if len(text) < _MIN_LANGDETECT_CHARS:
-            return _snap(heuristic)
+        if len(text) < _MIN_LINGUA_CHARS:
+            final = _snap(heuristic)
+            detect_info(
+                "fn=detect_language branch=tiny_text peek=%r len=%s cyrillic=%s "
+                "heuristic=%s final=%s",
+                peek,
+                len(text),
+                cyrillic,
+                heuristic,
+                final,
+            )
+            return final
 
+        installed = TextUtils.installed_from_codes(installed_from_codes)
+        if not installed:
+            installed = set(_DEFAULT_FROM_CODES)
+
+        lingua_status = (
+            LINGUA_STATUS.value if isinstance(LINGUA_STATUS, ImportStatus) else str(LINGUA_STATUS)
+        )
         detected = heuristic
-        prob = 0.0
-        if LANGDETECT_STATUS == ImportStatus.SUCCESS and LANGDETECT_MODULE is not None:
+        confidence = 0.0
+        branch = "no_detector"
+        top2 = ""
+        detector = _get_lingua_detector(frozenset(installed))
+        if detector is None:
+            branch = "no_detector"
+        else:
             try:
-                detect_fn = getattr(LANGDETECT_MODULE, "detect_langs", None)
-                if callable(detect_fn):
-                    results = detect_fn(text)
-                    if results:
-                        top = results[0]
-                        code = getattr(top, "lang", None)
-                        prob = float(getattr(top, "prob", 0.0))
-                        if code:
-                            detected = str(code).lower()
-                            logger.debug("langdetect -> %s (%.2f)", detected, prob)
+                values = detector.compute_language_confidence_values(text)
+                if values:
+                    parts: list[str] = []
+                    for hit in values[:2]:
+                        lang = getattr(hit, "language", None)
+                        conf = float(getattr(hit, "value", 0.0))
+                        iso = getattr(lang, "iso_code_639_1", None) if lang is not None else None
+                        code_name = getattr(iso, "name", None) if iso is not None else None
+                        if code_name:
+                            parts.append(f"{str(code_name).lower()}:{conf:.2f}")
+                    top2 = ",".join(parts)
+                    top = values[0]
+                    lang = getattr(top, "language", None)
+                    confidence = float(getattr(top, "value", 0.0))
+                    iso = getattr(lang, "iso_code_639_1", None) if lang is not None else None
+                    code_name = getattr(iso, "name", None) if iso is not None else None
+                    if code_name:
+                        detected = str(code_name).lower()
+                        branch = "lingua_ok"
+                        logger.debug("lingua -> %s (%.2f)", detected, confidence)
+                    else:
+                        branch = "lingua_empty"
+                else:
+                    branch = "lingua_empty"
             except Exception as exc:
-                logger.debug("langdetect failed: %s", exc)
+                logger.debug("lingua failed: %s", exc)
                 detected = heuristic
-                prob = 0.0
+                confidence = 0.0
+                branch = "lingua_fail"
+                detect_info(
+                    "fn=detect_language branch=lingua_fail peek=%r err=%s",
+                    peek,
+                    exc,
+                )
 
-        if prob < _MIN_LANGDETECT_PROB:
+        raw_code = detected
+        after_threshold = detected
+        if confidence < _MIN_LINGUA_CONFIDENCE and branch in {
+            "lingua_ok",
+            "lingua_empty",
+            "no_detector",
+        }:
+            if branch == "lingua_ok" and confidence < _MIN_LINGUA_CONFIDENCE:
+                branch = "low_confidence"
+            after_threshold = heuristic
             detected = heuristic
-        return _snap(detected)
+
+        final = _snap(detected)
+        detect_info(
+            "fn=detect_language branch=%s peek=%r len=%s installed=%s lingua_status=%s "
+            "cyrillic=%s heuristic=%s raw=%s conf=%.2f top2=%s after_threshold=%s "
+            "snap_in=%s final=%s",
+            branch,
+            peek,
+            len(text),
+            sorted(installed),
+            lingua_status,
+            cyrillic,
+            heuristic,
+            raw_code,
+            confidence,
+            top2 or "-",
+            after_threshold,
+            detected,
+            final,
+        )
+        return final
 
     @staticmethod
     def resolve_auto_pair(detected: str, preferred_to: str) -> Tuple[str, str]:

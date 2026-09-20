@@ -113,8 +113,9 @@ hooks/                          # PyInstaller hooks (numpy, ctranslate2, argostr
 
 ## Отладка
 
-- Лог Flutter: `log/app_debug.log` (ротация >2 МБ)
-- Лог sidecar: `log/sidecar.log` (RotatingFileHandler, не stdout)
+- Лог Flutter (общий): `%USERPROFILE%\.argos_translate\log\app.log` (ротация >2 МБ)
+- Лог sidecar: `{app}/log/sidecar.log` (portable/install) или `{repo}/log/sidecar.log` (dev); RotatingFileHandler, не stdout
+- Диагностика детекции языка: **`detect.log`** рядом с `sidecar.log` (тот же каталог; путь в `app.log`/`sidecar.log` как `DETECT path=...`). Env `ARGOS_DETECT_LOG` задаёт абсолютный путь. В строках — превью 2–3 слов, ветка Lingua/heuristic/skip, snap и чип AUTO.
 - LLM URL задаётся в настройках Flutter (пустой LOCAL по умолчанию)
 
 ## CI

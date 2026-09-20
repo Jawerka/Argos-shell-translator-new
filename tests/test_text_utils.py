@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import types
-
 import pytest
 
-from argos_translator.utils.imports import ImportStatus
 from argos_translator.utils.text_utils import TextUtils
 
 
@@ -57,38 +54,88 @@ def test_snap_detected_lang_table(
     )
 
 
-class _LangHit:
-    def __init__(self, lang: str, prob: float) -> None:
-        self.lang = lang
-        self.prob = prob
+class _FakeIso:
+    def __init__(self, name: str) -> None:
+        self.name = name
 
 
-def _patch_langdetect(monkeypatch: pytest.MonkeyPatch, lang: str, prob: float) -> None:
-    fake = types.SimpleNamespace(detect_langs=lambda text: [_LangHit(lang, prob)])
+class _FakeLang:
+    def __init__(self, code: str) -> None:
+        self.iso_code_639_1 = _FakeIso(code)
+
+
+class _FakeConf:
+    def __init__(self, code: str, value: float) -> None:
+        self.language = _FakeLang(code)
+        self.value = value
+
+
+class _FakeDetector:
+    def __init__(self, code: str, confidence: float) -> None:
+        self._code = code
+        self._confidence = confidence
+
+    def compute_language_confidence_values(self, text: str) -> list[_FakeConf]:
+        return [_FakeConf(self._code, self._confidence)]
+
+
+def _patch_lingua(monkeypatch: pytest.MonkeyPatch, lang: str, confidence: float) -> None:
     monkeypatch.setattr(
-        "argos_translator.utils.text_utils.LANGDETECT_STATUS",
-        ImportStatus.SUCCESS,
+        "argos_translator.utils.text_utils._get_lingua_detector",
+        lambda codes: _FakeDetector(lang, confidence),
     )
-    monkeypatch.setattr("argos_translator.utils.text_utils.LANGDETECT_MODULE", fake)
 
 
 _LONG_EN = "This is a reasonably long English sentence used for language detection."
 _LONG_RU = "Это достаточно длинный русский текст для проверки определения языка."
 
 
-def test_detect_language_snaps_nl_even_with_high_prob(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_langdetect(monkeypatch, "nl", 0.99)
+def test_detect_language_snaps_nl_even_with_high_conf(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_lingua(monkeypatch, "nl", 0.99)
     assert TextUtils.detect_language(_LONG_EN, installed_from_codes={"en", "ru"}) == "en"
 
 
-def test_detect_language_low_prob_uses_heuristic(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_langdetect(monkeypatch, "nl", 0.40)
+def test_detect_language_low_conf_uses_heuristic(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_lingua(monkeypatch, "nl", 0.40)
     assert TextUtils.detect_language(_LONG_EN, installed_from_codes={"en", "ru"}) == "en"
 
 
 def test_detect_language_cyrillic_bg_snaps_to_ru(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_langdetect(monkeypatch, "bg", 0.99)
+    _patch_lingua(monkeypatch, "bg", 0.99)
     assert TextUtils.detect_language(_LONG_RU, installed_from_codes={"en", "ru"}) == "ru"
+
+
+def test_detect_language_tiny_text_uses_heuristic() -> None:
+    assert TextUtils.detect_language("Hi", installed_from_codes={"en", "ru"}) == "en"
+    assert TextUtils.detect_language("Да", installed_from_codes={"en", "ru"}) == "ru"
+
+
+def test_peek_words() -> None:
+    from argos_translator.utils.detect_log import peek_words
+
+    assert peek_words("") == ""
+    assert peek_words("Hello world from Argos") == "Hello world from"
+    assert peek_words("one") == "one"
+    long = "x" * 40
+    assert peek_words(f"{long} y z").startswith("x" * 24 + "…")
+
+
+def test_detect_language_logs_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+    from argos_translator.utils import detect_log as detect_log_mod
+
+    lines: list[str] = []
+
+    def _capture(msg: str, *args: object) -> None:
+        lines.append(msg % args if args else msg)
+
+    monkeypatch.setattr(detect_log_mod, "detect_info", _capture)
+    monkeypatch.setattr(
+        "argos_translator.utils.text_utils.detect_info",
+        _capture,
+    )
+    TextUtils.detect_language("Hi", installed_from_codes={"en", "ru"})
+    assert any("branch=tiny_text" in line for line in lines)
+    assert any("peek=" in line for line in lines)
 
 
 def test_resolve_auto_pair_table() -> None:

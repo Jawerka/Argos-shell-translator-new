@@ -98,4 +98,4 @@ AT_TRANSLATE_MODULE: Optional[Any] = None
 if ARGOS_MODULE_STATUS == ImportStatus.SUCCESS and argostranslate_module is not None:
     AT_PACKAGE_MODULE, AT_TRANSLATE_MODULE = _init_argos_translate()
 
-LANGDETECT_STATUS, LANGDETECT_MODULE = safe_import("langdetect")
+LINGUA_STATUS, LINGUA_MODULE = safe_import("lingua")

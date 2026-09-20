@@ -20,6 +20,14 @@ hooks_dir = project_dir / "hooks"
 argos_modules = collect_submodules("argostranslate")
 argos_datas = collect_data_files("argostranslate")
 sidecar_modules = collect_submodules("sidecar")
+try:
+    lingua_modules = collect_submodules("lingua")
+except Exception:
+    lingua_modules = []
+try:
+    lingua_datas = collect_data_files("lingua")
+except Exception:
+    lingua_datas = []
 
 try:
     ctranslate2_binaries = collect_dynamic_libs("ctranslate2")
@@ -41,10 +49,11 @@ a = Analysis(
     ["sidecar_entry.py"],
     pathex=[str(project_dir), str(src_dir)],
     binaries=[*ctranslate2_binaries, *numpy_binaries],
-    datas=[*argos_datas],
+    datas=[*argos_datas, *lingua_datas],
     hiddenimports=[
         *argos_modules,
         *sidecar_modules,
+        *lingua_modules,
         "sidecar",
         "sidecar.__main__",
         "sidecar.server",
@@ -55,7 +64,7 @@ a = Analysis(
         "numpy",
         "charset_normalizer",
         "charset_normalizer.md",
-        "langdetect",
+        "lingua",
         "argos_translator",
         "argos_translator.config.constants",
         "argos_translator.config.paths",

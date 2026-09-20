@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:translator_core/translator_core.dart';
 
 import '../../core/app_log.dart';
+import '../../core/detect_log.dart';
 import '../../platform/desktop_shell.dart';
 import '../../platform/window_shell.dart';
 import '../../platform/selection_capture.dart';
@@ -277,6 +278,8 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       resolvedTo: state.resolvedTo,
     );
     state = state.copyWith(langFrom: next.from, langTo: next.to);
+    _pairCacheText = null;
+    _pairFuture = null;
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
           settings.copyWith(
@@ -285,6 +288,7 @@ class WorkspaceController extends Notifier<WorkspaceState> {
             autoTargetLang: next.to,
           ),
         );
+    await translateNow();
   }
 
   Future<void> setActiveTab(String tab) async {
@@ -708,7 +712,14 @@ class WorkspaceController extends Notifier<WorkspaceState> {
   Future<({String from, String to, String detected})> _resolvePair(
     String text,
   ) {
+    final peek = peekWords(text);
+    final client = ref.read(sidecarClientProvider);
     if (state.langFrom != 'auto') {
+      DetectLog.info(
+        'fn=resolvePair skip reason=explicit_from peek="$peek" len=${text.length} '
+        'langFrom=${state.langFrom} langTo=${state.langTo} '
+        'sidecar=${client == null ? "null" : "ok"}',
+      );
       return Future.value(
         (
           from: state.langFrom,
@@ -717,7 +728,14 @@ class WorkspaceController extends Notifier<WorkspaceState> {
         ),
       );
     }
-    if (_pairCacheText == text && _pairFuture != null) {
+    final cacheHit = _pairCacheText == text && _pairFuture != null;
+    DetectLog.info(
+      'fn=resolvePair begin peek="$peek" len=${text.length} '
+      'langFrom=auto langTo=${state.langTo} '
+      'sidecar=${client == null ? "null" : "ok"} cache=${cacheHit ? "hit" : "miss"}',
+    );
+    if (cacheHit) {
+      DetectLog.info('fn=resolvePair skip reason=cache peek="$peek"');
       return _pairFuture!;
     }
     _pairCacheText = text;
@@ -728,29 +746,61 @@ class WorkspaceController extends Notifier<WorkspaceState> {
   Future<({String from, String to, String detected})> _detectAutoPair(
     String text,
   ) async {
+    final peek = peekWords(text);
+    final cyrillic = containsCyrillic(text);
     var detected = detectLanguageHeuristic(text);
+    DetectLog.info(
+      'fn=detectAutoPair heuristic=$detected cyrillic=$cyrillic peek="$peek"',
+    );
     final client = ref.read(sidecarClientProvider);
-    if (client != null) {
+    if (client == null) {
+      DetectLog.info(
+        'fn=detectAutoPair sidecar_skip reason=no_client peek="$peek"',
+      );
+    } else {
+      DetectLog.info('fn=detectAutoPair sidecar_call peek="$peek"');
       try {
         final result = await client.detect(text);
         if (result.code.isNotEmpty && result.code != 'auto') {
+          DetectLog.info(
+            'fn=detectAutoPair sidecar_ok code=${result.code} '
+            'label=${result.label} peek="$peek"',
+          );
           detected = result.code;
+        } else {
+          DetectLog.info(
+            'fn=detectAutoPair sidecar_ok ignored_code=${result.code} '
+            'keep_heuristic=$detected peek="$peek"',
+          );
         }
       } catch (e, st) {
+        DetectLog.info(
+          'fn=detectAutoPair sidecar_fail peek="$peek" err=$e',
+        );
         AppLog.warning('detect failed', e, st);
       }
     }
+    final snapIn = detected;
     detected = snapDetectedLang(
       detected,
-      hasCyrillic: containsCyrillic(text),
+      hasCyrillic: cyrillic,
       installedFromCodes: state.argosPairs,
     );
     final preferred = state.langTo.trim().isEmpty
         ? ref.read(settingsProvider).autoTargetLang
         : state.langTo;
     final pair = resolveAutoPair(detected, preferred);
+    DetectLog.info(
+      'fn=detectAutoPair snap_in=$snapIn snap_out=$detected '
+      'argosPairs=${state.argosPairs} preferred_to=$preferred '
+      'pair=${pair.from}→${pair.to} peek="$peek"',
+    );
     if (!_disposed) {
       state = state.copyWith(detectedLang: pair.from, resolvedTo: pair.to);
+      DetectLog.info(
+        'fn=detectAutoPair chip_update detectedLang=${pair.from} '
+        'resolvedTo=${pair.to} peek="$peek"',
+      );
     }
     return (from: pair.from, to: pair.to, detected: pair.from);
   }

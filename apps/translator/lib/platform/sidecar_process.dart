@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:translator_core/translator_core.dart';
 
 import '../core/app_log.dart';
+import '../core/detect_log.dart';
 
 class SidecarSession {
   SidecarSession({
@@ -143,6 +144,8 @@ class SidecarProcess {
       ..['PYTHONUNBUFFERED'] = '1'
       ..['PYTHONIOENCODING'] = 'utf-8'
       ..['ARGOS_SIDECAR_TOKEN'] = token;
+    final detectLogPath = DetectLog.path ?? DetectLog.resolvePath();
+    environment['ARGOS_DETECT_LOG'] = detectLogPath;
     final pythonPath = _pythonPath(resolved.workingDirectory);
     if (pythonPath != null) {
       environment['PYTHONPATH'] = pythonPath;

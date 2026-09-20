@@ -14,10 +14,11 @@ void main() {
   testWidgets('swap AUTO with detected keeps AUTO and flips target', (
     tester,
   ) async {
+    final sidecar = fakeSidecar();
     final container = await pumpApp(
       tester,
       settings: argosOnlySettings.copyWith(langFrom: 'auto', langTo: 'ru'),
-      sidecar: fakeSidecar(),
+      sidecar: sidecar,
     );
     final session = container.read(workspaceProvider.notifier);
     // Seed detected lang as if detect already ran.
@@ -31,19 +32,29 @@ void main() {
     final state = container.read(workspaceProvider);
     expect(state.langFrom, 'auto');
     expect(state.langTo, 'en');
+    expect(sidecar.fakeState.translateCalls, greaterThan(1));
   });
 
-  testWidgets('swap explicit en/ru flips both sides', (tester) async {
+  testWidgets('swap explicit en/ru flips both sides and translates', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar();
     final container = await pumpApp(
       tester,
       settings: argosOnlySettings.copyWith(langFrom: 'en', langTo: 'ru'),
-      sidecar: fakeSidecar(),
+      sidecar: sidecar,
     );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Hello world';
+    await tester.pumpAndSettle();
+    final before = sidecar.fakeState.translateCalls;
+
     await tester.tap(find.byTooltip('Поменять языки'));
     await tester.pumpAndSettle();
     final state = container.read(workspaceProvider);
     expect(state.langFrom, 'ru');
     expect(state.langTo, 'en');
+    expect(sidecar.fakeState.translateCalls, greaterThan(before));
   });
 
   testWidgets('engine tabs switch active tab', (tester) async {

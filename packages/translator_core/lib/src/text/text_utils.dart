@@ -152,7 +152,7 @@ Set<String> installedFromCodesFromPairs(Iterable<Object?> pairs) {
   return out;
 }
 
-/// Простая эвристика для UI, без langdetect.
+/// Простая эвристика для UI, без Lingua (детект — в sidecar).
 String detectLanguageHeuristic(String text) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) {
@@ -162,6 +162,26 @@ String detectLanguageHeuristic(String text) {
     return 'ru';
   }
   return 'en';
+}
+
+/// Первые [n] слов для диагностического лога (длинные слова обрезаются).
+String peekWords(String text, {int n = 3, int maxWordLen = 24}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  final words = <String>[];
+  for (final match in RegExp(r'\S+').allMatches(trimmed)) {
+    var word = match.group(0)!;
+    if (word.length > maxWordLen) {
+      word = '${word.substring(0, maxWordLen)}…';
+    }
+    words.add(word);
+    if (words.length >= n) {
+      break;
+    }
+  }
+  return words.join(' ');
 }
 
 /// Свести детект к установленным from-кодам, иначе en/ru по алфавиту.

@@ -10,6 +10,7 @@ from argos_translator.engines.argos_engine import TranslateEngine
 from argos_translator.services.model_manager import ModelManager
 from argos_translator.services.translation_cache import TranslationCache
 from argos_translator.services.translation_coordinator import TranslationCoordinator
+from argos_translator.utils.detect_log import detect_info, peek_words
 from argos_translator.utils.imports import AT_TRANSLATE_MODULE
 from argos_translator.utils.text_utils import TextUtils
 
@@ -35,7 +36,16 @@ class ArgosJobRunner:
 
     def detect(self, text: str) -> str:
         from_codes = TextUtils.installed_from_codes(self.model_manager.list_installed_pairs())
-        return TextUtils.detect_language(text, installed_from_codes=from_codes)
+        peek = peek_words(text)
+        detect_info(
+            "fn=jobs.detect begin peek=%r len=%s installed=%s",
+            peek,
+            len((text or "").strip()),
+            sorted(from_codes) if from_codes else [],
+        )
+        code = TextUtils.detect_language(text, installed_from_codes=from_codes)
+        detect_info("fn=jobs.detect end peek=%r code=%s", peek, code)
+        return code
 
     def _snap_missing_pair(
         self,
@@ -92,6 +102,13 @@ class ArgosJobRunner:
         if (from_code or "").lower() == "auto":
             resolved_from = self.detect(text)
             resolved_from, resolved_to = TextUtils.resolve_auto_pair(resolved_from, to_code)
+            detect_info(
+                "fn=translate_auto_detect peek=%r preferred_to=%s pair=%s→%s",
+                peek_words(text),
+                to_code,
+                resolved_from,
+                resolved_to,
+            )
         resolved_from, resolved_to = self._snap_missing_pair(
             text, resolved_from, resolved_to, preferred_to
         )

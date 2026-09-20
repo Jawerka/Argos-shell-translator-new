@@ -8,7 +8,7 @@ Windows-first переводчик: **Flutter UI** + **Python sidecar** для �
 
 1. **Sidecar не копирует движки.** HTTP-процесс в `sidecar/` импортирует существующие `TranslateEngine`, `ModelManager`, `document_io`, `TextUtils`, `TranslationCoordinator`. Дублировать `argos_translator/` внутрь sidecar нельзя — сразу разъедется с pytest.
 2. **Настройки принадлежат UI.** Sidecar не читает и не пишет `settings.json`. Параметры перевода приходят в каждом запросе. Секреты LLM — только во Flutter (`flutter_secure_storage`).
-3. **Старт sidecar:** Flutter генерирует токен, кладёт его в `ARGOS_SIDECAR_TOKEN`, запускает процесс с `--host 127.0.0.1 --port 0 --parent-pid <pid>` (опционально `--token`), читает первую строку stdout или ready-файл `{"ok":true,"port":N}`. Слушать только loopback. Заголовок `X-Sidecar-Token` на всех методах, кроме опционального `GET /health` (liveness без деталей). Sidecar завершается, если родитель умер (watchdog). Лог: `{log_dir}/sidecar.log`, не stdout.
+3. **Старт sidecar:** Flutter генерирует токен, кладёт его в `ARGOS_SIDECAR_TOKEN`, запускает процесс с `--host 127.0.0.1 --port 0 --parent-pid <pid>` (опционально `--token`), читает первую строку stdout или ready-файл `{"ok":true,"port":N}`. Слушать только loopback. Заголовок `X-Sidecar-Token` на всех методах, кроме опционального `GET /health` (liveness без деталей). Sidecar завершается, если родитель умер (watchdog). Лог: `{log_dir}/sidecar.log`, не stdout. Диагностика AUTO-языка: `{log_dir}/detect.log` (Flutter и sidecar; путь задаётся через `ARGOS_DETECT_LOG`).
 4. **Melos не обязателен.** Два Dart-пакета — workspace в корневом `pubspec.yaml` и `scripts/dev.ps1`. Melos подключать, если пакетов станет больше.
 5. **Settings v9 живут только в Dart** (`packages/translator_core`). Sidecar файл не читает. Новый инсталл: пустой LOCAL URL, хоткей не назначен.
 
@@ -41,8 +41,9 @@ Windows-first переводчик: **Flutter UI** + **Python sidecar** для �
 - Правило: если определённый язык совпал с целью — переворот (`ru→en`); любой другой исходник идёт в предпочтительную цель. Явно выбранная другая цель (DE) уважается, пока детект ≠ DE.
 - Пара считается один раз за цикл и одинаково уходит в Argos и LLM явными кодами (после resolve не `from=auto`).
 - Чип рядом с селектором: `EN → RU` (определённый язык → фактическая цель), не подмена комбобокса.
-- langdetect не уводит на пару без модели: при уверенности ниже 0.85 или коде вне установленных from — эвристика en/ru по алфавиту.
-- Swap при AUTO меняет только цель (с учётом фактической пары). Исходник остаётся AUTO.
+- Lingua (`lingua-language-detector`) среди установленных from-кодов Argos; при confidence ниже 0.5, тексте короче 3 символов или коде вне установленных from — эвристика en/ru по алфавиту (`snap_detected_lang`).
+- Диагностика: `{log_dir}/detect.log` (превью 2–3 слов, ветки Flutter/sidecar/Lingua). Путь: `DETECT path=...` в `app.log` / `sidecar.log`.
+- Swap при AUTO меняет только цель (с учётом фактической пары). Исходник остаётся AUTO. После свапа сразу запускается перевод текущего исходника.
 
 ### Streaming
 

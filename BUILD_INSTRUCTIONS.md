@@ -14,7 +14,7 @@ Flutter SDK ищется через PATH, `FLUTTER_ROOT`, `.fvm/flutter_sdk` и�
 
 - **Flutter 3.44.0** (PATH / `FLUTTER_ROOT` / FVM / `%LOCALAPPDATA%\flutter`)
 - **Python 3.10–3.12** (рекомендуется; Python 3.14 несовместим с numpy/ctranslate2/argostranslate)
-- `venv` с `pip install -r requirements.txt` (для sidecar: `argostranslate`, `langdetect`, `charset-normalizer`; для сборки EXE — `pyinstaller`)
+- `venv` с `pip install -r requirements.txt` (для sidecar: `argostranslate`, `lingua-language-detector`, `charset-normalizer`; для сборки EXE — `pyinstaller`)
 - Windows 10+ (основная платформа)
 
 ## Разработка

@@ -20,7 +20,6 @@ from sidecar.jobs import ArgosJobRunner
 from sidecar.server import TOKEN_HEADER, create_server
 from argos_translator.services.translation_cache import TranslationCache
 from argos_translator.services.translation_coordinator import TranslationCoordinator
-from argos_translator.utils.imports import ImportStatus
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOKEN = "test-sidecar-token"
@@ -510,16 +509,23 @@ def test_translate_auto_snaps_nl_to_en_when_only_en_ru(monkeypatch: pytest.Monke
     engine = FakeEngine()
     monkeypatch.setattr("sidecar.jobs.TranslateEngine", lambda prefer_api=True: engine)
 
-    class _Hit:
-        lang = "nl"
-        prob = 0.99
+    class _FakeIso:
+        name = "nl"
 
-    fake_detect = types.SimpleNamespace(detect_langs=lambda text: [_Hit()])
-    monkeypatch.setattr(
-        "argos_translator.utils.text_utils.LANGDETECT_STATUS",
-        ImportStatus.SUCCESS,
+    class _FakeLang:
+        iso_code_639_1 = _FakeIso()
+
+    class _FakeConf:
+        language = _FakeLang()
+        value = 0.99
+
+    fake_detector = types.SimpleNamespace(
+        compute_language_confidence_values=lambda text: [_FakeConf()]
     )
-    monkeypatch.setattr("argos_translator.utils.text_utils.LANGDETECT_MODULE", fake_detect)
+    monkeypatch.setattr(
+        "argos_translator.utils.text_utils._get_lingua_detector",
+        lambda codes: fake_detector,
+    )
     runner = ArgosJobRunner(
         coordinator=TranslationCoordinator(),
         cache=TranslationCache(),

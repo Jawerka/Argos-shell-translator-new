@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "argostranslate>=1.10.0",
-    "langdetect>=1.0.9",
+    "lingua-language-detector>=2.0.0",
     "charset-normalizer>=3.0",
 ]
 

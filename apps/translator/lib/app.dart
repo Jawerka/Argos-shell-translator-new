@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:translator_core/translator_core.dart';
 
 import 'core/app_log.dart';
+import 'core/detect_log.dart';
 import 'core/theme/translator_theme.dart';
 import 'features/boot/init_error_screen.dart';
 import 'features/onboarding/first_run_page.dart';
@@ -81,6 +82,7 @@ class _TranslatorAppState extends ConsumerState<TranslatorApp> {
         await TripleCopyService.instance.stop();
         await _sidecar.stop();
         await InstanceAgent.instance.stop();
+        await DetectLog.close();
         await AppLog.close();
       };
       DesktopShell.instance.attachWindowListener();
