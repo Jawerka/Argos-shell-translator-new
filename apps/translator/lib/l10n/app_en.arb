@@ -31,6 +31,7 @@
   "langTo": "To",
   "langAuto": "AUTO",
   "detectedLangTooltip": "Detected language → actual target",
+  "pairOverrideTooltip": "Direction for this text only. Swap again to restore automatic choice.",
   "engineArgos": "Argos",
   "engineLlm": "LLM",
   "engineTabs": "Translation engine",

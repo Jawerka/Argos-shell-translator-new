@@ -102,6 +102,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detectedLangTooltip => 'Определённый язык → фактическая цель';
 
   @override
+  String get pairOverrideTooltip =>
+      'Направление только для этого текста. Повторный свап вернёт автовыбор.';
+
+  @override
   String get engineRestarting => 'Движок перезапускается…';
 
   @override

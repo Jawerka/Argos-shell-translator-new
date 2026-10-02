@@ -34,7 +34,8 @@ class ArgosJobRunner:
         self.model_manager = ModelManager(packages_dir)
         self._translate_lock = translate_lock or threading.Lock()
 
-    def detect(self, text: str) -> str:
+    def detect_result(self, text: str) -> tuple[str, str]:
+        """Код для Argos и метка языка (ru или Lingua, без подгонки)."""
         from_codes = TextUtils.installed_from_codes(self.model_manager.list_installed_pairs())
         peek = peek_words(text)
         detect_info(
@@ -43,9 +44,15 @@ class ArgosJobRunner:
             len((text or "").strip()),
             sorted(from_codes) if from_codes else [],
         )
-        code = TextUtils.detect_language(text, installed_from_codes=from_codes)
-        detect_info("fn=jobs.detect end peek=%r code=%s", peek, code)
-        return code
+        code, lang = TextUtils.detect_parts(text, installed_from_codes=from_codes)
+        detect_info("fn=jobs.detect end peek=%r code=%s lang=%s", peek, code, lang)
+        return code, lang
+
+    def detect(self, text: str) -> str:
+        return self.detect_result(text)[0]
+
+    def detect_lang(self, text: str) -> str:
+        return self.detect_result(text)[1]
 
     def _snap_missing_pair(
         self,
@@ -59,7 +66,7 @@ class ArgosJobRunner:
         from_codes = TextUtils.installed_from_codes(self.model_manager.list_installed_pairs())
         snapped = TextUtils.snap_detected_lang(
             from_code,
-            has_cyrillic=TextUtils.has_cyrillic(text),
+            text=text,
             installed_from_codes=from_codes,
         )
         if snapped == (from_code or "").strip().lower():

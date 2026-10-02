@@ -31,6 +31,7 @@
   "langTo": "Куда",
   "langAuto": "AUTO",
   "detectedLangTooltip": "Определённый язык → фактическая цель",
+  "pairOverrideTooltip": "Направление только для этого текста. Повторный свап вернёт автовыбор.",
   "engineRestarting": "Движок перезапускается…",
   "engineArgos": "Argos",
   "engineLlm": "LLM",

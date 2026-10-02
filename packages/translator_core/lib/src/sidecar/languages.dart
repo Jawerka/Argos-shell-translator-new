@@ -14,4 +14,11 @@ const defaultLanguageNames = <String, String>{
   'ar': 'العربية',
   'hi': 'हिन्दी',
   'tr': 'Türkçe',
+  'nl': 'Nederlands',
+  'pl': 'Polski',
+  'cs': 'Čeština',
+  'sv': 'Svenska',
+  'el': 'Ελληνικά',
+  'he': 'עברית',
+  'th': 'ไทย',
 };

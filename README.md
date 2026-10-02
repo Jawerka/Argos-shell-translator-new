@@ -59,7 +59,7 @@ Smoke: `python scripts\smoke_flutter_dist.py`.
 
 ## Настройки
 
-- Файл: `%USERPROFILE%\.argos_translate\settings.json` (версия **9**)
+- Файл: `%USERPROFILE%\.argos_translate\settings.json` (версия **10**)
 - Ключи LLM — в Windows credential store (`flutter_secure_storage`), не в JSON
 - Новый инсталл: пустой LOCAL URL, глобальный хоткей выключен
 - Лог: `log/app_debug.log` рядом с приложением / репозиторием
@@ -87,7 +87,7 @@ Smoke: `python scripts\smoke_flutter_dist.py`.
 
 ```
 apps/translator/           Flutter Windows
-packages/translator_core/  settings v9, sidecar client, LLM SSE
+packages/translator_core/  settings v10, sidecar client, LLM SSE
 sidecar/                   HTTP вокруг src/argos_translator
 src/argos_translator/      движки Argos для sidecar
 scripts/build-windows.ps1

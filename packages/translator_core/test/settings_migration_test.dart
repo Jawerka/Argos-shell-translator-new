@@ -33,7 +33,7 @@ void main() {
     };
 
     final migrated = migrateSettings(v8);
-    expect(migrated['version'], 9);
+    expect(migrated['version'], 10);
     final ui = migrated['ui'] as Map<String, dynamic>;
     expect(ui['first_run_done'], isTrue);
     final llm = migrated['llm'] as Map<String, dynamic>;
@@ -43,7 +43,7 @@ void main() {
     expect(llm['api_key_refs'], isA<Map<dynamic, dynamic>>());
 
     final settings = AppSettings.fromJson(v8);
-    expect(settings.version, 9);
+    expect(settings.version, 10);
     expect(settings.firstRunDone, isTrue);
     expect(settings.llm.baseUrl, lanUrl);
     expect(settings.llm.providerUrls['local'], lanUrl);
@@ -62,7 +62,7 @@ void main() {
 
   test('new settings default to empty local URL and first_run_done false', () {
     const settings = AppSettings();
-    expect(settings.version, 9);
+    expect(settings.version, 10);
     expect(settings.firstRunDone, isFalse);
     expect(settings.llm.baseUrl, isEmpty);
     expect(settings.llm.providerUrls['local'], isEmpty);
@@ -70,7 +70,7 @@ void main() {
     expect(settings.llm.baseUrl.contains('192.168'), isFalse);
 
     final json = settings.toJson();
-    expect(json['version'], 9);
+    expect(json['version'], 10);
     expect((json['ui'] as Map)['first_run_done'], isFalse);
     expect((json['llm'] as Map)['base_url'], isEmpty);
     expect(json.toString().contains('192.168.88.41'), isFalse);
@@ -88,11 +88,11 @@ void main() {
     await store.save(loaded);
     final text = await store.file.readAsString();
     final decoded = jsonDecode(text) as Map<String, dynamic>;
-    expect(decoded['version'], 9);
+    expect(decoded['version'], 10);
     expect((decoded['ui'] as Map)['first_run_done'], isFalse);
 
     final again = await store.load();
-    expect(again.version, 9);
+    expect(again.version, 10);
     expect(again.llm.apiKeyRefs.containsKey('openrouter'), isTrue);
   });
 
@@ -172,6 +172,67 @@ void main() {
     final ui = json['ui'] as Map<Object?, Object?>;
     expect((ui['settings_dialog'] as Map<Object?, Object?>)['width'], 720);
     expect(json['custom_top'], isA<Map<Object?, Object?>>());
+  });
+
+  test('v9 en/ru pair becomes AUTO ru and leaves other pairs', () {
+    const prompt = 'Переведи текст. Только перевод.';
+    final v9 = <String, dynamic>{
+      'version': 9,
+      'window': {
+        'state': 'normal',
+        'x': 245,
+        'y': 201,
+        'width': 800,
+        'height': 600,
+        'opacity': 1.0,
+        'theme': 'dark',
+        'font_scale': 1.4,
+        'editor_layout': 'split',
+        'editor_font': 'system',
+      },
+      'translation': {
+        'streaming': true,
+        'debounce_ms': 700,
+        'llm_debounce_ms': 1200,
+        'auto_target_lang': 'en',
+      },
+      'languages': {'from': 'en', 'to': 'ru'},
+      'llm': {
+        'enabled': true,
+        'provider': 'local',
+        'base_url': 'http://127.0.0.1:8989/v1',
+        'provider_urls': {
+          'local': 'http://127.0.0.1:8989/v1',
+          'openrouter': 'https://openrouter.ai/api/v1',
+          'custom': '',
+        },
+        'model': 'local-model',
+        'system_prompt': prompt,
+      },
+      'ui': {'active_translation_tab': 'llm', 'first_run_done': true},
+      'behavior': {'global_hotkey': 'ctrl+shift+c', 'triple_copy_enabled': true},
+    };
+
+    final settings = AppSettings.fromJson(v9);
+    expect(settings.version, 10);
+    expect(settings.langFrom, 'auto');
+    expect(settings.langTo, 'ru');
+    expect(settings.autoTargetLang, 'ru');
+    expect(settings.llm.baseUrl, 'http://127.0.0.1:8989/v1');
+    expect(settings.llm.systemPrompt, prompt);
+    expect(settings.llm.providerUrls['local'], 'http://127.0.0.1:8989/v1');
+    expect(settings.window.fontScale, closeTo(1.4, 0.001));
+    expect(settings.activeTranslationTab, 'llm');
+
+    final other = AppSettings.fromJson({
+      'version': 9,
+      'languages': {'from': 'de', 'to': 'fr'},
+      'translation': {'auto_target_lang': 'fr'},
+    });
+    expect(other.version, 10);
+    expect(other.langFrom, 'de');
+    expect(other.langTo, 'fr');
+    expect(other.autoTargetLang, 'fr');
   });
 
   test('clamp health_check_ttl_sec', () {

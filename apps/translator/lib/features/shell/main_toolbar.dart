@@ -200,6 +200,7 @@ class _LanguageCenter extends ConsumerWidget {
         detected.isNotEmpty;
     final chipLabel = showChip
         ? '${detected.toUpperCase()} → ${resolvedTo.toUpperCase()}'
+            '${sessionState.pairOverride ? ' ·' : ''}'
         : '';
 
     return Row(
@@ -222,7 +223,9 @@ class _LanguageCenter extends ConsumerWidget {
         if (showChip) ...[
           const SizedBox(width: MockupLayout.zoneGap),
           Tooltip(
-            message: l10n.detectedLangTooltip,
+            message: sessionState.pairOverride
+                ? l10n.pairOverrideTooltip
+                : l10n.detectedLangTooltip,
             child: Container(
               key: const Key('detected-lang'),
               height: MockupLayout.langComboH,

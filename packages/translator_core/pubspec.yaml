@@ -1,5 +1,5 @@
 name: translator_core
-description: Settings v9, sidecar HTTP client, and window geometry for Argos Translate.
+description: Settings v10, sidecar HTTP client, and window geometry for Argos Translate.
 version: 0.1.0
 publish_to: none
 resolution: workspace

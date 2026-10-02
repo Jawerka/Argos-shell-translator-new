@@ -284,6 +284,12 @@ abstract class AppLocalizations {
   /// **'Определённый язык → фактическая цель'**
   String get detectedLangTooltip;
 
+  /// No description provided for @pairOverrideTooltip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Направление только для этого текста. Повторный свап вернёт автовыбор.'**
+  String get pairOverrideTooltip;
+
   /// No description provided for @engineRestarting.
   ///
   /// In ru, this message translates to:

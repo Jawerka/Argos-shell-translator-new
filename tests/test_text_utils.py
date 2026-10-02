@@ -29,25 +29,26 @@ def test_installed_from_codes() -> None:
 
 
 @pytest.mark.parametrize(
-    ("detected", "cyrillic", "installed", "expected"),
+    ("detected", "text", "installed", "expected"),
     [
-        ("nl", False, ["en->ru", "ru->en"], "en"),
-        ("ca", False, ["en", "ru"], "en"),
-        ("so", False, ["en->ru"], "en"),
-        ("bg", True, ["en->ru", "ru->en"], "ru"),
-        ("de", False, ["en->ru", "de->ru"], "de"),
-        ("en", False, ["en->ru"], "en"),
-        ("", False, ["en->ru"], "en"),
-        ("auto", True, ["en->ru", "ru->en"], "ru"),
+        ("nl", "Hello world from the test", ["en->ru", "ru->en"], "en"),
+        ("ca", "Hello world from the test", ["en", "ru"], "en"),
+        ("so", "Hello world from the test", ["en->ru"], "en"),
+        ("bg", "Привет мир это проверка", ["en->ru", "ru->en"], "ru"),
+        ("de", "Das Wetter heute ist wirklich kalt", ["en->ru", "de->ru"], "de"),
+        ("en", "Hello world from the test", ["en->ru"], "en"),
+        ("", "Hello world", ["en->ru"], "en"),
+        ("auto", "Привет мир это проверка", ["en->ru", "ru->en"], "ru"),
+        ("ru", "Das Wetter heute ist wirklich sehr kalt und grau, слово", ["en->ru", "ru->en"], "en"),
     ],
 )
 def test_snap_detected_lang_table(
-    detected: str, cyrillic: bool, installed: list[str], expected: str
+    detected: str, text: str, installed: list[str], expected: str
 ) -> None:
     assert (
         TextUtils.snap_detected_lang(
             detected,
-            has_cyrillic=cyrillic,
+            text=text,
             installed_from_codes=installed,
         )
         == expected
@@ -134,7 +135,7 @@ def test_detect_language_logs_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         _capture,
     )
     TextUtils.detect_language("Hi", installed_from_codes={"en", "ru"})
-    assert any("branch=tiny_text" in line for line in lines)
+    assert any("branch=short_latin" in line for line in lines)
     assert any("peek=" in line for line in lines)
 
 

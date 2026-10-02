@@ -3,36 +3,6 @@ import 'package:translator/features/session/argos_assembler.dart';
 import 'package:translator/features/session/language_swap.dart';
 
 void main() {
-  test('AUTO swap keeps auto and uses detected target', () {
-    final next = swapLanguagePair(
-      langFrom: 'auto',
-      langTo: 'ru',
-      detectedLang: 'en',
-    );
-    expect(next.from, 'auto');
-    expect(next.to, 'en');
-  });
-
-  test('AUTO swap with resolved target uses actual pair', () {
-    final next = swapLanguagePair(
-      langFrom: 'auto',
-      langTo: 'ru',
-      detectedLang: 'ru',
-      resolvedTo: 'en',
-    );
-    expect(next.from, 'auto');
-    expect(next.to, 'ru');
-  });
-
-  test('AUTO swap toggles ru/en when detected is missing', () {
-    final next = swapLanguagePair(
-      langFrom: 'auto',
-      langTo: 'ru',
-    );
-    expect(next.from, 'auto');
-    expect(next.to, 'en');
-  });
-
   test('explicit pair swaps both sides', () {
     final next = swapLanguagePair(langFrom: 'en', langTo: 'ru');
     expect(next.from, 'ru');
@@ -53,6 +23,22 @@ void main() {
     expect(assembler.hasParagraphAnchors, isFalse);
     assembler.put(index: 0, paraIdx: 0, text: 'a');
     expect(assembler.hasParagraphAnchors, isTrue);
+  });
+
+  test('sourceTextReplaced treats a paste as a new text', () {
+    expect(sourceTextReplaced('Эти два?', 'Я попробую.'), isTrue);
+    expect(
+      sourceTextReplaced(
+        'Fluttershy\'s shoes? Doesn\'t have to be, heh',
+        'Я попробую.',
+      ),
+      isTrue,
+    );
+    expect(sourceTextReplaced('брусчатка,', 'брусчатка, дере'), isFalse);
+    expect(sourceTextReplaced('Hello', 'Hello!'), isFalse);
+    expect(sourceTextReplaced('', 'Hello'), isTrue);
+    expect(sourceTextReplaced('Hello', ''), isTrue);
+    expect(sourceTextReplaced('same', 'same'), isFalse);
   });
 
   test('paragraphStartOffsets splits on blank lines', () {

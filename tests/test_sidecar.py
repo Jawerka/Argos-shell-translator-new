@@ -197,7 +197,9 @@ def test_detect_auto(sidecar_http: tuple[str, str]) -> None:
             json={"text": "Привет"},
         )
     assert empty.json()["code"] == "en"
+    assert empty.json()["lang"] == "en"
     assert ru.json()["code"] == "ru"
+    assert ru.json()["lang"] == "ru"
 
 
 def test_files_decode(sidecar_http: tuple[str, str], tmp_path: Path) -> None:
@@ -550,6 +552,23 @@ def test_translate_auto_snaps_nl_to_en_when_only_en_ru(monkeypatch: pytest.Monke
     assert start["to"] == "ru"
     assert engine.calls
     assert engine.calls[0][1:] == ("en", "ru")
+
+
+def test_snap_missing_pair_german_with_one_russian_word(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = ArgosJobRunner(
+        coordinator=TranslationCoordinator(),
+        cache=TranslationCache(),
+    )
+    pairs = ["en->ru", "ru->en"]
+    monkeypatch.setattr(runner.model_manager, "list_installed_pairs", lambda: list(pairs))
+    monkeypatch.setattr(
+        runner.model_manager,
+        "has_pair",
+        lambda from_code, to_code: f"{from_code}->{to_code}" in pairs,
+    )
+    text = "Das Wetter heute ist wirklich sehr kalt und grau, слово"
+    resolved = runner._snap_missing_pair(text, "de", "ru", "ru")
+    assert resolved == ("en", "ru")
 
 
 def test_second_translate_supersedes_first(monkeypatch: pytest.MonkeyPatch) -> None:

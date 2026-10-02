@@ -102,6 +102,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detectedLangTooltip => 'Detected language → actual target';
 
   @override
+  String get pairOverrideTooltip =>
+      'Direction for this text only. Swap again to restore automatic choice.';
+
+  @override
   String get engineRestarting => 'Engine is restarting…';
 
   @override

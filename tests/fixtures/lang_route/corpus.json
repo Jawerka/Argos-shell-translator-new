@@ -1,0 +1,729 @@
+[
+  {
+    "id": "log-0924-tip",
+    "origin": "log",
+    "text": "Sent a tip, as thanks overall, and, just in case,",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru, без свапа"
+  },
+  {
+    "id": "log-0924-eti-dva",
+    "origin": "log",
+    "text": "Эти два?",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, через 3 с свап на ru→en"
+  },
+  {
+    "id": "log-0924-ya-vse",
+    "origin": "log",
+    "text": "Я все еще не уверен, мне нужно просто добавить в к",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "уже ru→en"
+  },
+  {
+    "id": "log-0924-shoes",
+    "origin": "log",
+    "text": "Fluttershy's shoes? Doesn't have to be, heh\r\nBut t",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ru→en, свап на en→ru; CRLF"
+  },
+  {
+    "id": "log-0924-poprobuyu",
+    "origin": "log",
+    "text": "Я попробую.",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, свап на ru→en"
+  },
+  {
+    "id": "log-0924-brus-1",
+    "origin": "log",
+    "text": "брусчатка,",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "печать, ru→en"
+  },
+  {
+    "id": "log-0924-brus-2",
+    "origin": "log",
+    "text": "брусчатка, дере",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "печать, следующий шаг"
+  },
+  {
+    "id": "log-0924-brus-3",
+    "origin": "log",
+    "text": "брусчатка, каменные домики,",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "печать, ru→en"
+  },
+  {
+    "id": "log-0924-cant",
+    "origin": "log",
+    "text": "Cant wait to see her walking through the public garden",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "префикс из лога заменён нейтральным; был свап на en→ru"
+  },
+  {
+    "id": "log-0925-love",
+    "origin": "log",
+    "text": "I LOVE this Rarity scene, the visual style, the se",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "len=405, en→ru"
+  },
+  {
+    "id": "log-0925-pereod",
+    "origin": "log",
+    "text": "Мне переодически говорят что отправляют какие-то д",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0925-pereod-oni",
+    "origin": "log",
+    "text": "Мне переодически они говорят что отправляют какие-",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0925-sound",
+    "origin": "log",
+    "text": "Major sound warning for this one below, this is th",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0925-shtukoy",
+    "origin": "log",
+    "text": "Вот этой штукой можно сделать это",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, свап на ru→en"
+  },
+  {
+    "id": "log-0925-knee",
+    "origin": "log",
+    "text": "knee_together",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "термин с _, буквы не считаются"
+  },
+  {
+    "id": "log-0925-kosol",
+    "origin": "log",
+    "text": "косолапость",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ru→en"
+  },
+  {
+    "id": "log-0925-proveryu",
+    "origin": "log",
+    "text": "Я проверю чуточку позже и скажу вам",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ru→en"
+  },
+  {
+    "id": "log-0925-spasibo",
+    "origin": "log",
+    "text": "Спасибо, вы все так же можете оставить их себе.",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ru→en"
+  },
+  {
+    "id": "log-0925-da-horosho",
+    "origin": "log",
+    "text": "Да, все хорошо, спасибо!",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ru→en"
+  },
+  {
+    "id": "log-0925-thanks",
+    "origin": "log",
+    "text": "thank you, but i have no problem to send it to you",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ru→en, свап на en→ru"
+  },
+  {
+    "id": "log-0925-ne-uveren-long",
+    "origin": "log",
+    "text": "Я не уверен что способ с бусти все еще работает дл",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "len=509, остался en→ru"
+  },
+  {
+    "id": "log-0926-rarity-pose",
+    "origin": "log",
+    "text": "Do you think you could gen one of Rarity in this p",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0926-de",
+    "origin": "log",
+    "text": "Russland ist nicht unsere friend",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "немецкий из лога",
+    "label": "de"
+  },
+  {
+    "id": "log-0926-rainbow",
+    "origin": "log",
+    "text": "За ними должна стоять Рейнбоу с улыбкой",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0926-pog",
+    "origin": "log",
+    "text": "Big me? :RD_pog: Duh — more Rainbow to go around,",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "короткий эмодзи не считается"
+  },
+  {
+    "id": "log-0926-wings",
+    "origin": "log",
+    "text": "Pfft, that's not how wings work, Alex — bigger m",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ник заменён на Alex"
+  },
+  {
+    "id": "log-0926-ussr",
+    "origin": "log",
+    "text": "Did you know that in the USSR in 1981, Article 219",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0926-rules",
+    "origin": "log",
+    "text": "Server Rules\r\n\r\n\r\nYou must be at least 18 years ol",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "len=515, CRLF"
+  },
+  {
+    "id": "log-0927-fluttershy",
+    "origin": "log",
+    "text": "Anything you can do with Fluttershy here?",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0927-art",
+    "origin": "log",
+    "text": "Regarding the art, I have clumsy hands and it's qu",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0927-fair",
+    "origin": "log",
+    "text": "That's fair, and it just translated as having \"clu",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0927-write",
+    "origin": "log",
+    "text": "I write almost everything in English using an onli",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0927-spisok",
+    "origin": "log",
+    "text": "Тебе стоит сделать список всех своих социальных се",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0928-horror",
+    "origin": "log",
+    "text": "just want horror movie trivia or genuine scary fac",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0928-ne-uveren",
+    "origin": "log",
+    "text": "Я не уверен в том что было бы интереснее. Наверное",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0928-unemployed",
+    "origin": "log",
+    "text": "\"Unemployed\"? I run Ponyville's weather detail — e",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0928-wage-q",
+    "origin": "log",
+    "text": "Do you work for wage?",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0928-wage",
+    "origin": "log",
+    "text": "Wage? Pfft, I work for the sky clearing up and the",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0928-action",
+    "origin": "log",
+    "text": "...such action as it deems necessary...",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0928-url",
+    "origin": "log",
+    "text": "https://example.ru/2026/09/27/191336/v-genshin-impa",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "ссылка заменена на example.ru"
+  },
+  {
+    "id": "log-0928-gardient",
+    "origin": "log",
+    "text": "гардиент",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, свап на ru→en"
+  },
+  {
+    "id": "log-0929-rain",
+    "origin": "log",
+    "text": "this but with rain, it already looks like",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "префикс из лога заменён нейтральным; свап на en→ru"
+  },
+  {
+    "id": "log-0929-this-here",
+    "origin": "log",
+    "text": "This here... I've finally, finally gotten it total",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ru→en, свап на en→ru"
+  },
+  {
+    "id": "log-0929-amazing",
+    "origin": "log",
+    "text": "these are all turning out amazing, can you think o",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0929-doza",
+    "origin": "log",
+    "text": "Им нужна доза рисунков.",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, свап на ru→en"
+  },
+  {
+    "id": "log-0929-camera",
+    "origin": "log",
+    "text": "The camera holds on the midday street, then begins",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "len=1921, свап на en→ru"
+  },
+  {
+    "id": "log-0930-hmmm",
+    "origin": "log",
+    "text": "Hmmm it can either be like that so rain falls on",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "префикс из лога заменён нейтральным"
+  },
+  {
+    "id": "log-0930-wow",
+    "origin": "log",
+    "text": "Wow that was a really long, elaborate description.",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "итоговая пара en→ru"
+  },
+  {
+    "id": "log-0930-da-no",
+    "origin": "log",
+    "text": "Да, но я особо не знаю что добавить. Это скорее бы",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "en→ru, свап на ru→en"
+  },
+  {
+    "id": "log-0930-otlichno",
+    "origin": "log",
+    "text": "Было бы отлично если вы сможите описать каждый кар",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0930-drink",
+    "origin": "log",
+    "text": "Can Fluttershy in her shoes like this drink that b",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0930-persp",
+    "origin": "log",
+    "text": "Я думаю это случилось из-за перспективы.",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "остался en→ru, правило RU→EN"
+  },
+  {
+    "id": "log-0930-animate",
+    "origin": "log",
+    "text": "I don't think I'll animate it though because it wi",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0930-happy",
+    "origin": "log",
+    "text": "I'm happy that someone is willing to continue the",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "log-0930-studios",
+    "origin": "log",
+    "text": "What were your first thoughts when Town Studios",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "название студии нейтральное"
+  },
+  {
+    "id": "log-1001-mask",
+    "origin": "log",
+    "text": "Did you know the ghostface mask was originally a g",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "en→ru"
+  },
+  {
+    "id": "der-len-1921",
+    "origin": "derived",
+    "text": "The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begins to follow the crowd. The camera holds on the midday street, then begin",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "длина 1921, как в логе"
+  },
+  {
+    "id": "der-len-515",
+    "origin": "derived",
+    "text": "Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\nYou must be at least 18 years old to read this note. Server Rules\r\n\r\n\r\n",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "длина 515, CRLF как в логе"
+  },
+  {
+    "id": "der-len-509",
+    "origin": "derived",
+    "text": "Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой ссылкой все еще работает для гостей. Я не уверен что способ с новой сс",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "длина 509, как в логе"
+  },
+  {
+    "id": "der-len-405",
+    "origin": "derived",
+    "text": "I LOVE this Rarity scene, the visual style, the setting and the light. I LOVE this Rarity scene, the visual style, the setting and the light. I LOVE this Rarity scene, the visual style, the setting and the light. I LOVE this Rarity scene, the visual style, the setting and the light. I LOVE this Rarity scene, the visual style, the setting and the light. I LOVE this Rarity scene, the visual style, the se",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "длина 405, как в логе"
+  },
+  {
+    "id": "der-fluttershy-ru",
+    "origin": "derived",
+    "text": "Fluttershy, я думаю это хорошая идея",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "имя в начале, дальше русский"
+  },
+  {
+    "id": "der-rarity",
+    "origin": "derived",
+    "text": "Можешь сгенерировать Rarity в этой позе?",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "имя не в начале не считается"
+  },
+  {
+    "id": "der-comfy",
+    "origin": "derived",
+    "text": "Я обновил Stable Diffusion и ComfyUI, теперь LoRA работает",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "CamelCase и капс не считаются"
+  },
+  {
+    "id": "der-gardient-en",
+    "origin": "derived",
+    "text": "The word гардиент means gradient in my notes",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "одно русское слово не делает текст русским"
+  },
+  {
+    "id": "der-ru-cli",
+    "origin": "derived",
+    "text": "Запусти docker compose up и посмотри logs в Grafana",
+    "auto": "ru",
+    "explicit_fix": false,
+    "note": "смесь: AUTO → RU, явную пару не трогаем"
+  },
+  {
+    "id": "der-discord",
+    "origin": "derived",
+    "text": "<@42> <#7> <:wave:1> :RD_pog: hello from the chat",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "упоминания и эмодзи сняты"
+  },
+  {
+    "id": "der-link-comment",
+    "origin": "derived",
+    "text": "Смотри пример на https://example.ru/news и скажи, что думаешь",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ссылка снята, комментарий русский"
+  },
+  {
+    "id": "der-link-only",
+    "origin": "derived",
+    "text": "https://example.ru/only",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "ссылка без текста"
+  },
+  {
+    "id": "der-inline-code",
+    "origin": "derived",
+    "text": "Запусти `docker compose up` и посмотри логи",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "inline-код не считается"
+  },
+  {
+    "id": "der-fence",
+    "origin": "derived",
+    "text": "Привет\n\n```\nprint('hello world')\n```\n\nкак дела",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "fenced-блок не считается"
+  },
+  {
+    "id": "der-crlf",
+    "origin": "derived",
+    "text": "Первая строка про дом.\r\n\r\nВторая строка про сад.",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "абзацы CRLF"
+  },
+  {
+    "id": "der-type-fluttershy",
+    "origin": "derived",
+    "text": "Fluttershy",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ещё только имя"
+  },
+  {
+    "id": "der-type-fluttershy-ru",
+    "origin": "derived",
+    "text": "Fluttershy, я думаю это хорошая идея",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "после имени вердикт меняется на ru"
+  },
+  {
+    "id": "der-da",
+    "origin": "derived",
+    "text": "Да",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "короткий ответ"
+  },
+  {
+    "id": "der-ok-cyr",
+    "origin": "derived",
+    "text": "Ок",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "кириллическое Ок"
+  },
+  {
+    "id": "der-sps",
+    "origin": "derived",
+    "text": "Спс",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "короткий ответ"
+  },
+  {
+    "id": "der-lol",
+    "origin": "derived",
+    "text": "lol",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "короткая латиница"
+  },
+  {
+    "id": "der-ok",
+    "origin": "derived",
+    "text": "ok",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "короткая латиница"
+  },
+  {
+    "id": "der-ok-caps",
+    "origin": "derived",
+    "text": "OK",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "капс не считается, как не-русский"
+  },
+  {
+    "id": "der-xd",
+    "origin": "derived",
+    "text": "xD",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "смешанный регистр не считается"
+  },
+  {
+    "id": "der-q",
+    "origin": "derived",
+    "text": "?",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "нет букв"
+  },
+  {
+    "id": "der-thumb",
+    "origin": "derived",
+    "text": "👍",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "нет букв"
+  },
+  {
+    "id": "der-fr",
+    "origin": "derived",
+    "text": "Bonjour, comment allez-vous aujourd'hui dans cette belle ville",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "французский",
+    "label": "fr"
+  },
+  {
+    "id": "der-es",
+    "origin": "derived",
+    "text": "Hola, buenos dias, como estas esta manana en la ciudad",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "испанский",
+    "label": "es"
+  },
+  {
+    "id": "der-pl",
+    "origin": "derived",
+    "text": "Czesc, jak sie masz dzisiaj w tym pieknym miescie nad rzeka",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "польский",
+    "label": "pl"
+  },
+  {
+    "id": "der-ja",
+    "origin": "derived",
+    "text": "今日はとてもいい天気ですね。散歩に行きましょう。",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "японский",
+    "label": "ja"
+  },
+  {
+    "id": "der-zh",
+    "origin": "derived",
+    "text": "今天天气很好，我们一起去公园散步吧。",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "китайский",
+    "label": "zh"
+  },
+  {
+    "id": "der-ko",
+    "origin": "derived",
+    "text": "오늘 날씨가 정말 좋습니다. 같이 산책하러 갈까요.",
+    "auto": "other",
+    "explicit_fix": false,
+    "note": "корейский",
+    "label": "ko"
+  },
+  {
+    "id": "lim-uk",
+    "origin": "derived",
+    "text": "Це український текст про погоду сьогодні",
+    "auto": "ru",
+    "explicit_fix": true,
+    "note": "ограничение: украинский идёт как RU"
+  },
+  {
+    "id": "lim-translit",
+    "origin": "derived",
+    "text": "privet, kak dela",
+    "auto": "other",
+    "explicit_fix": true,
+    "note": "ограничение: транслит идёт как EN"
+  }
+]

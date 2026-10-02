@@ -49,6 +49,8 @@ class FakeSidecarOptions {
     this.decodeText = 'Hello',
     this.decodePath = r'C:\tmp\note.txt',
     this.detectCode = 'en',
+    this.detectLang,
+    this.startFrom,
     this.translateMode = FakeTranslateMode.success,
     this.translatedText = 'Привет',
     this.installSucceeds = true,
@@ -59,6 +61,12 @@ class FakeSidecarOptions {
   final String decodeText;
   final String decodePath;
   final String detectCode;
+
+  /// Метка `/v1/detect`. Пусто — берётся [detectCode].
+  final String? detectLang;
+
+  /// Поле `from` в событии start. Пусто — код запроса.
+  final String? startFrom;
   final FakeTranslateMode translateMode;
   final String translatedText;
   final bool installSucceeds;
@@ -74,6 +82,7 @@ class FakeSidecarState {
   var detectCalls = 0;
   var lastInstallBundle = false;
   final translateBodies = <Map<String, dynamic>>[];
+  final detectTexts = <String>[];
 }
 
 SidecarClient fakeSidecar([FakeSidecarOptions? options]) {
@@ -96,7 +105,8 @@ SidecarClient fakeSidecar([FakeSidecarOptions? options]) {
         }
         final from = json['from']?.toString() ?? 'auto';
         final to = json['to']?.toString() ?? 'ru';
-        final detectedFrom = from == 'auto' ? opts.detectCode : from;
+        final detectedFrom = opts.startFrom ??
+            (from == 'auto' ? opts.detectCode : from);
 
         Stream<List<int>> ndjsonStream() async* {
           yield utf8.encode(
@@ -168,8 +178,14 @@ SidecarClient fakeSidecar([FakeSidecarOptions? options]) {
       }
       if (path == '/v1/detect') {
         state.detectCalls++;
+        if (bodyText.isNotEmpty) {
+          final json = jsonDecode(bodyText) as Map<String, dynamic>;
+          state.detectTexts.add(json['text']?.toString() ?? '');
+        }
         return jsonStreamed({
           'code': opts.detectCode,
+          'lang': opts.detectLang ?? opts.detectCode,
+          'label': opts.detectLang ?? opts.detectCode,
           'confidence': 0.99,
         });
       }

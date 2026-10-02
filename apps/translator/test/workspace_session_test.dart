@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:translator/features/session/document_files.dart';
+import 'package:translator/providers.dart';
 import 'package:translator/features/session/workspace_controller.dart';
 import 'package:translator/features/session/workspace_state.dart';
 import 'package:translator/features/settings/settings_page.dart';
@@ -476,10 +477,11 @@ void main() {
     expect(find.text('RU → EN'), findsOneWidget);
   });
 
-  testWidgets('AUTO english with detect=nl snaps to EN → RU', (tester) async {
+  testWidgets('AUTO english keeps the sidecar label on the chip', (tester) async {
     final sidecar = fakeSidecar(
       FakeSidecarOptions(
-        detectCode: 'nl',
+        detectCode: 'en',
+        detectLang: 'nl',
         pairs: const ['en->ru', 'ru->en'],
       ),
     );
@@ -507,12 +509,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sidecar.fakeState.translateBodies, isNotEmpty);
-    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+    expect(sidecar.fakeState.translateBodies.last['from'], 'nl');
     expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
-    expect(llm.lastFromCode, 'en');
+    expect(llm.lastFromCode, 'nl');
     expect(llm.lastToCode, 'ru');
-    expect(container.read(workspaceProvider).detectedLang, 'en');
-    expect(find.text('EN → RU'), findsOneWidget);
+    expect(container.read(workspaceProvider).detectedLang, 'nl');
+    expect(find.text('NL → RU'), findsOneWidget);
   });
 
   testWidgets('translateNow starts Argos and LLM together', (tester) async {
@@ -587,5 +589,157 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(container.read(workspaceProvider).argosBusy, isFalse);
+  });
+
+  testWidgets('24.09 replay routes without a swap and detects only non-Russian', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar();
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings.copyWith(langFrom: 'auto', langTo: 'ru'),
+      sidecar: sidecar,
+    );
+    final session = container.read(workspaceProvider.notifier);
+
+    session.sourceController.text = 'Эти два?';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+    expect(sidecar.fakeState.detectCalls, 0);
+    expect(find.text('RU → EN'), findsOneWidget);
+
+    session.sourceController.text =
+        'Fluttershy\'s shoes? Doesn\'t have to be, heh\r\nBut t';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
+    expect(sidecar.fakeState.detectCalls, 1);
+    expect(find.text('EN → RU'), findsOneWidget);
+
+    session.sourceController.text = 'Я попробую.';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+    expect(sidecar.fakeState.detectCalls, 1);
+    expect(find.text('RU → EN'), findsOneWidget);
+  });
+
+  testWidgets('AUTO swap flips only the current text and keeps settings', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar();
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings.copyWith(langFrom: 'auto', langTo: 'ru'),
+      sidecar: sidecar,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Эти два?';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+
+    await session.swapLanguages();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
+    expect(container.read(settingsProvider).langFrom, 'auto');
+    expect(container.read(settingsProvider).langTo, 'ru');
+    expect(container.read(workspaceProvider).pairOverride, isTrue);
+    expect(find.text('EN → RU ·'), findsOneWidget);
+
+    session.sourceController.text = 'Я попробую.';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+    expect(container.read(workspaceProvider).pairOverride, isFalse);
+    expect(container.read(settingsProvider).langFrom, 'auto');
+    expect(find.text('RU → EN'), findsOneWidget);
+  });
+
+  testWidgets('explicit en→ru is corrected, a manual swap pins, a new paste corrects', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar();
+    final container = await pumpApp(
+      tester,
+      settings: argosOnlySettings.copyWith(langFrom: 'en', langTo: 'ru'),
+      sidecar: sidecar,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Им нужна доза рисунков.';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+    expect(container.read(settingsProvider).langFrom, 'ru');
+    expect(container.read(settingsProvider).langTo, 'en');
+
+    await session.swapLanguages();
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).pairPinned, isTrue);
+    expect(container.read(settingsProvider).langFrom, 'en');
+    expect(container.read(settingsProvider).langTo, 'ru');
+    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
+
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(container.read(settingsProvider).langFrom, 'en');
+    expect(sidecar.fakeState.translateBodies.last['from'], 'en');
+
+    session.sourceController.text = 'Я попробую.';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+    expect(container.read(workspaceProvider).pairPinned, isFalse);
+    expect(container.read(settingsProvider).langFrom, 'ru');
+    expect(container.read(settingsProvider).langTo, 'en');
+    expect(sidecar.fakeState.translateBodies.last['from'], 'ru');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'en');
+  });
+
+  testWidgets('German label goes to LLM and the chip survives the start event', (
+    tester,
+  ) async {
+    final sidecar = fakeSidecar(
+      FakeSidecarOptions(
+        detectCode: 'en',
+        detectLang: 'de',
+        startFrom: 'en',
+      ),
+    );
+    final llm = FakeLlmClient();
+    final container = await pumpApp(
+      tester,
+      settings: const AppSettings(
+        firstRunDone: true,
+        langFrom: 'auto',
+        langTo: 'ru',
+        llm: LlmSettings(
+          enabled: true,
+          provider: 'local',
+          baseUrl: 'http://127.0.0.1:8080/v1',
+          model: 'test',
+        ),
+      ),
+      sidecar: sidecar,
+      llm: llm,
+    );
+    final session = container.read(workspaceProvider.notifier);
+    session.sourceController.text = 'Russland ist nicht unsere friend';
+    await session.translateNow();
+    await tester.pumpAndSettle();
+
+    expect(llm.lastFromCode, 'de');
+    expect(llm.lastToCode, 'ru');
+    expect(sidecar.fakeState.translateBodies.last['from'], 'de');
+    expect(sidecar.fakeState.translateBodies.last['to'], 'ru');
+    expect(container.read(workspaceProvider).detectedLang, 'de');
+    expect(find.text('DE → RU'), findsOneWidget);
+    expect(sidecar.fakeState.detectCalls, greaterThan(0));
   });
 }

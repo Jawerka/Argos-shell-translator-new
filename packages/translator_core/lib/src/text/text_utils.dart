@@ -184,6 +184,183 @@ String peekWords(String text, {int n = 3, int maxWordLen = 24}) {
   return words.join(' ');
 }
 
+/// Доля кириллицы, с которой AUTO считает текст русским.
+const autoRuShare = 0.3;
+
+/// Доля и минимум букв для поправки явной пары en/ru.
+const explicitRuShare = 0.6;
+const explicitMinLetters = 2;
+
+final _fenceRe = RegExp(r'```.*?```', dotAll: true);
+final _inlineCodeRe = RegExp(r'`[^`\n]+`');
+final _urlRe = RegExp(r'https?://\S+|www\.\S+', caseSensitive: false);
+final _emailRe = RegExp(r'\b[\w.+-]+@[\w.-]+\.\w+\b');
+final _discordRe = RegExp(r'<@[!&]?\d+>|<#\d+>|<:[A-Za-z0-9_]+:\d+>');
+final _emojiShortRe = RegExp(r':[A-Za-z0-9_]{2,}:');
+final _letterRe = RegExp(r'\p{L}', unicode: true);
+final _digitRe = RegExp(r'\p{N}', unicode: true);
+
+/// Вердикт источника: `ru` или `other`, и можно ли развернуть явную пару.
+class SourceVerdict {
+  const SourceVerdict({
+    required this.auto,
+    required this.explicitFix,
+    required this.cyr,
+    required this.lat,
+    required this.other,
+    required this.share,
+  });
+
+  final String auto;
+  final bool explicitFix;
+  final int cyr;
+  final int lat;
+  final int other;
+  final double share;
+
+  /// `ru` / `en`, если источник однозначный для поправки пары en↔ru.
+  String? get explicitSource {
+    if (share >= explicitRuShare && cyr >= explicitMinLetters) {
+      return 'ru';
+    }
+    if (cyr == 0 && lat >= explicitMinLetters) {
+      return 'en';
+    }
+    return null;
+  }
+}
+
+String _cleanLangText(String text) {
+  var cleaned = text.replaceAll(_fenceRe, ' ');
+  cleaned = cleaned.replaceAll(_inlineCodeRe, ' ');
+  cleaned = cleaned.replaceAll(_urlRe, ' ');
+  cleaned = cleaned.replaceAll(_emailRe, ' ');
+  cleaned = cleaned.replaceAll(_discordRe, ' ');
+  cleaned = cleaned.replaceAll(_emojiShortRe, ' ');
+  return cleaned;
+}
+
+bool _isLetter(String ch) => _letterRe.hasMatch(ch);
+
+bool _isDigit(String ch) => _digitRe.hasMatch(ch);
+
+bool _isUpper(String ch) {
+  final upper = ch.toUpperCase();
+  final lower = ch.toLowerCase();
+  return upper != lower && ch == upper;
+}
+
+String _script(String ch) {
+  if (!_isLetter(ch)) {
+    return '';
+  }
+  final code = ch.codeUnitAt(0);
+  if ((code >= 0x0400 && code <= 0x052F) ||
+      (code >= 0x1C80 && code <= 0x1C8F) ||
+      (code >= 0x2DE0 && code <= 0x2DFF) ||
+      (code >= 0xA640 && code <= 0xA69F)) {
+    return 'cyr';
+  }
+  if ((code >= 0x41 && code <= 0x5A) ||
+      (code >= 0x61 && code <= 0x7A) ||
+      (code >= 0x00C0 && code <= 0x024F) ||
+      (code >= 0x1E00 && code <= 0x1EFF)) {
+    return 'lat';
+  }
+  return 'other';
+}
+
+bool _isWordChar(String ch) =>
+    _isLetter(ch) || _isDigit(ch) || ch == '_' || ch == "'" || ch == '’';
+
+bool _isSentenceMark(String ch) =>
+    ch == '.' || ch == '!' || ch == '?' || ch == '…' || ch == '\n' || ch == '\r';
+
+(int, int, int) _countToken(String token, bool sentenceStart) {
+  var cyr = 0;
+  var other = 0;
+  final latin = <String>[];
+  var hasDigitOrUnderscore = false;
+  for (final rune in token.runes) {
+    final ch = String.fromCharCodes([rune]);
+    if (_isDigit(ch) || ch == '_') {
+      hasDigitOrUnderscore = true;
+      continue;
+    }
+    if (ch == "'" || ch == '’') {
+      continue;
+    }
+    final script = _script(ch);
+    if (script == 'cyr') {
+      cyr += 1;
+    } else if (script == 'lat') {
+      latin.add(ch);
+    } else if (script == 'other') {
+      other += 1;
+    }
+  }
+  var lat = 0;
+  if (latin.isNotEmpty && !hasDigitOrUnderscore) {
+    final uppers = latin.where(_isUpper).length;
+    final internalUpper = latin.skip(1).any(_isUpper);
+    final proper = _isUpper(latin.first) && !sentenceStart;
+    final allCaps = uppers == latin.length && latin.length >= 2;
+    if (!(allCaps || internalUpper || proper)) {
+      lat = latin.length;
+    }
+  }
+  return (cyr, lat, other);
+}
+
+SourceVerdict sourceVerdict(String text) {
+  final cleaned = _cleanLangText(text);
+  var cyr = 0;
+  var lat = 0;
+  var other = 0;
+  var sentenceStart = true;
+  final chars = [
+    for (final rune in cleaned.runes) String.fromCharCodes([rune]),
+  ];
+  var i = 0;
+  while (i < chars.length) {
+    if (!_isWordChar(chars[i])) {
+      if (_isSentenceMark(chars[i])) {
+        sentenceStart = true;
+      }
+      i += 1;
+      continue;
+    }
+    final start = i;
+    while (i < chars.length && _isWordChar(chars[i])) {
+      i += 1;
+    }
+    final counted = _countToken(chars.sublist(start, i).join(), sentenceStart);
+    cyr += counted.$1;
+    lat += counted.$2;
+    other += counted.$3;
+    sentenceStart = false;
+  }
+  final total = cyr + lat + other;
+  final share = total == 0 ? 0.0 : cyr / total;
+  final auto = total > 0 && share >= autoRuShare ? 'ru' : 'other';
+  final draft = SourceVerdict(
+    auto: auto,
+    explicitFix: false,
+    cyr: cyr,
+    lat: lat,
+    other: other,
+    share: share,
+  );
+  return SourceVerdict(
+    auto: auto,
+    explicitFix: draft.explicitSource != null,
+    cyr: cyr,
+    lat: lat,
+    other: other,
+    share: share,
+  );
+}
+
 /// Свести детект к установленным from-кодам, иначе en/ru по алфавиту.
 String snapDetectedLang(
   String detected, {

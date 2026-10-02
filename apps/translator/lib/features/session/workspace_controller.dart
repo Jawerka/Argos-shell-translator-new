@@ -99,9 +99,13 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     if (text == _lastSourceText) {
       return;
     }
+    final replaced = sourceTextReplaced(_lastSourceText, text);
     _lastSourceText = text;
     _pairCacheText = null;
     _pairFuture = null;
+    if (replaced && (state.pairOverride || state.pairPinned)) {
+      state = state.copyWith(clearPairOverride: true, pairPinned: false);
+    }
     if (_suppressSource) {
       return;
     }
@@ -255,7 +259,11 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     state = state.copyWith(
       langFrom: code,
       clearDetected: code != 'auto',
+      clearPairOverride: true,
+      pairPinned: code != 'auto',
     );
+    _pairCacheText = null;
+    _pairFuture = null;
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
           settings.copyWith(langFrom: code),
@@ -263,7 +271,12 @@ class WorkspaceController extends Notifier<WorkspaceState> {
   }
 
   Future<void> setLangTo(String code) async {
-    state = state.copyWith(langTo: code);
+    state = state.copyWith(
+      langTo: code,
+      pairPinned: state.langFrom != 'auto',
+    );
+    _pairCacheText = null;
+    _pairFuture = null;
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
           settings.copyWith(langTo: code, autoTargetLang: code),
@@ -271,15 +284,57 @@ class WorkspaceController extends Notifier<WorkspaceState> {
   }
 
   Future<void> swapLanguages() async {
+    final peek = peekWords(sourceController.text);
+    if (state.langFrom == 'auto') {
+      if (state.pairOverride) {
+        final oldFrom = state.overrideFrom ?? '';
+        final oldTo = state.overrideTo ?? '';
+        state = state.copyWith(clearPairOverride: true);
+        _pairCacheText = null;
+        _pairFuture = null;
+        DetectLog.info(
+          'fn=swap reason=override_clear peek="$peek" '
+          'from=$oldFrom→$oldTo to=auto',
+        );
+        await translateNow();
+        return;
+      }
+      final current = await _resolvePair(sourceController.text);
+      state = state.copyWith(
+        pairOverride: true,
+        overrideFrom: current.to,
+        overrideTo: current.from,
+        detectedLang: current.to,
+        resolvedTo: current.from,
+      );
+      _pairCacheText = null;
+      _pairFuture = null;
+      DetectLog.info(
+        'fn=swap reason=override peek="$peek" '
+        'from=${current.from}→${current.to} to=${current.to}→${current.from}',
+      );
+      await translateNow();
+      return;
+    }
+
     final next = swapLanguagePair(
       langFrom: state.langFrom,
       langTo: state.langTo,
-      detectedLang: state.detectedLang,
-      resolvedTo: state.resolvedTo,
     );
-    state = state.copyWith(langFrom: next.from, langTo: next.to);
+    final oldFrom = state.langFrom;
+    final oldTo = state.langTo;
+    state = state.copyWith(
+      langFrom: next.from,
+      langTo: next.to,
+      pairPinned: true,
+      clearPairOverride: true,
+    );
     _pairCacheText = null;
     _pairFuture = null;
+    DetectLog.info(
+      'fn=swap reason=explicit peek="$peek" '
+      'from=$oldFrom→$oldTo to=${next.from}→${next.to}',
+    );
     final settings = ref.read(settingsProvider);
     await ref.read(settingsProvider.notifier).update(
           settings.copyWith(
@@ -709,98 +764,149 @@ class WorkspaceController extends Notifier<WorkspaceState> {
     }
   }
 
+  bool _explicitConflict(SourceVerdict verdict) {
+    final from = state.langFrom.trim().toLowerCase();
+    final to = state.langTo.trim().toLowerCase();
+    if (from == 'auto') {
+      return false;
+    }
+    const enRu = {'en', 'ru'};
+    if (!enRu.contains(from) || !enRu.contains(to)) {
+      return false;
+    }
+    final source = verdict.explicitSource;
+    return source != null && source != from;
+  }
+
+  String _verdictLog(SourceVerdict verdict) {
+    return 'cyr=${verdict.cyr} lat=${verdict.lat} other=${verdict.other} '
+        'share=${verdict.share.toStringAsFixed(2)} auto=${verdict.auto}';
+  }
+
+  void _rememberLanguage(String code) {
+    if (code.isEmpty || state.languages.containsKey(code)) {
+      return;
+    }
+    final name = defaultLanguageNames[code] ?? code.toUpperCase();
+    state = state.copyWith(
+      languages: {...state.languages, code: name},
+    );
+  }
+
   Future<({String from, String to, String detected})> _resolvePair(
     String text,
   ) {
     final peek = peekWords(text);
-    final client = ref.read(sidecarClientProvider);
-    if (state.langFrom != 'auto') {
+    final verdict = sourceVerdict(text);
+    final counts = _verdictLog(verdict);
+    if (state.langFrom == 'auto' && state.pairOverride) {
+      final from = (state.overrideFrom ?? state.langTo).trim();
+      final to = (state.overrideTo ?? 'ru').trim();
       DetectLog.info(
-        'fn=resolvePair skip reason=explicit_from peek="$peek" len=${text.length} '
-        'langFrom=${state.langFrom} langTo=${state.langTo} '
-        'sidecar=${client == null ? "null" : "ok"}',
+        'fn=resolvePair reason=override peek="$peek" len=${text.length} '
+        '$counts pair=$from→$to',
       );
-      return Future.value(
-        (
-          from: state.langFrom,
-          to: state.langTo,
-          detected: state.langFrom,
-        ),
-      );
+      return Future.value((from: from, to: to, detected: from));
+    }
+    if (state.langFrom != 'auto') {
+      if (state.pairPinned || !_explicitConflict(verdict)) {
+        DetectLog.info(
+          'fn=resolvePair reason=explicit peek="$peek" len=${text.length} '
+          '$counts pair=${state.langFrom}→${state.langTo}',
+        );
+        return Future.value(
+          (
+            from: state.langFrom,
+            to: state.langTo,
+            detected: state.langFrom,
+          ),
+        );
+      }
+      return _correctExplicitPair(text, verdict);
     }
     final cacheHit = _pairCacheText == text && _pairFuture != null;
     DetectLog.info(
       'fn=resolvePair begin peek="$peek" len=${text.length} '
-      'langFrom=auto langTo=${state.langTo} '
-      'sidecar=${client == null ? "null" : "ok"} cache=${cacheHit ? "hit" : "miss"}',
+      'langFrom=auto $counts cache=${cacheHit ? "hit" : "miss"}',
     );
     if (cacheHit) {
       DetectLog.info('fn=resolvePair skip reason=cache peek="$peek"');
       return _pairFuture!;
     }
     _pairCacheText = text;
-    _pairFuture = _detectAutoPair(text);
+    _pairFuture = _detectAutoPair(text, verdict);
     return _pairFuture!;
+  }
+
+  Future<({String from, String to, String detected})> _correctExplicitPair(
+    String text,
+    SourceVerdict verdict,
+  ) async {
+    final peek = peekWords(text);
+    final from = state.langTo;
+    final to = state.langFrom;
+    state = state.copyWith(
+      langFrom: from,
+      langTo: to,
+      detectedLang: from,
+      resolvedTo: to,
+    );
+    final settings = ref.read(settingsProvider);
+    await ref.read(settingsProvider.notifier).update(
+          settings.copyWith(langFrom: from, langTo: to, autoTargetLang: to),
+        );
+    DetectLog.info(
+      'fn=resolvePair reason=correct peek="$peek" len=${text.length} '
+      '${_verdictLog(verdict)} pair=$from→$to',
+    );
+    return (from: from, to: to, detected: from);
   }
 
   Future<({String from, String to, String detected})> _detectAutoPair(
     String text,
+    SourceVerdict verdict,
   ) async {
     final peek = peekWords(text);
-    final cyrillic = containsCyrillic(text);
-    var detected = detectLanguageHeuristic(text);
-    DetectLog.info(
-      'fn=detectAutoPair heuristic=$detected cyrillic=$cyrillic peek="$peek"',
-    );
-    final client = ref.read(sidecarClientProvider);
-    if (client == null) {
-      DetectLog.info(
-        'fn=detectAutoPair sidecar_skip reason=no_client peek="$peek"',
-      );
+    late final ({String from, String to}) pair;
+    var label = '-';
+    if (verdict.auto == 'ru') {
+      pair = (from: 'ru', to: 'en');
     } else {
-      DetectLog.info('fn=detectAutoPair sidecar_call peek="$peek"');
-      try {
-        final result = await client.detect(text);
-        if (result.code.isNotEmpty && result.code != 'auto') {
+      var lang = 'en';
+      final client = ref.read(sidecarClientProvider);
+      if (client == null) {
+        DetectLog.info(
+          'fn=detectAutoPair sidecar_skip reason=no_client peek="$peek"',
+        );
+      } else {
+        DetectLog.info('fn=detectAutoPair sidecar_call peek="$peek"');
+        try {
+          final result = await client.detect(text);
+          final tag = result.lang.trim().toLowerCase();
           DetectLog.info(
             'fn=detectAutoPair sidecar_ok code=${result.code} '
-            'label=${result.label} peek="$peek"',
+            'lang=$tag peek="$peek"',
           );
-          detected = result.code;
-        } else {
+          if (tag.isNotEmpty && tag != 'auto' && tag != 'ru') {
+            lang = tag;
+          }
+        } catch (e, st) {
           DetectLog.info(
-            'fn=detectAutoPair sidecar_ok ignored_code=${result.code} '
-            'keep_heuristic=$detected peek="$peek"',
+            'fn=detectAutoPair sidecar_fail peek="$peek" err=$e',
           );
+          AppLog.warning('detect failed', e, st);
         }
-      } catch (e, st) {
-        DetectLog.info(
-          'fn=detectAutoPair sidecar_fail peek="$peek" err=$e',
-        );
-        AppLog.warning('detect failed', e, st);
       }
+      _rememberLanguage(lang);
+      label = lang;
+      pair = (from: lang, to: 'ru');
     }
-    final snapIn = detected;
-    detected = snapDetectedLang(
-      detected,
-      hasCyrillic: cyrillic,
-      installedFromCodes: state.argosPairs,
-    );
-    final preferred = state.langTo.trim().isEmpty
-        ? ref.read(settingsProvider).autoTargetLang
-        : state.langTo;
-    final pair = resolveAutoPair(detected, preferred);
     DetectLog.info(
-      'fn=detectAutoPair snap_in=$snapIn snap_out=$detected '
-      'argosPairs=${state.argosPairs} preferred_to=$preferred '
-      'pair=${pair.from}→${pair.to} peek="$peek"',
+      'fn=resolvePair reason=auto peek="$peek" ${_verdictLog(verdict)} '
+      'label=$label pair=${pair.from}→${pair.to}',
     );
     if (!_disposed) {
       state = state.copyWith(detectedLang: pair.from, resolvedTo: pair.to);
-      DetectLog.info(
-        'fn=detectAutoPair chip_update detectedLang=${pair.from} '
-        'resolvedTo=${pair.to} peek="$peek"',
-      );
     }
     return (from: pair.from, to: pair.to, detected: pair.from);
   }
@@ -810,24 +916,12 @@ class WorkspaceController extends Notifier<WorkspaceState> {
       case TranslateStart():
         _argosJobId = event.jobId;
         _assembler.reset(event.unitCount);
-        if (state.langFrom == 'auto' &&
-            event.fromCode.isNotEmpty &&
-            event.fromCode != 'auto') {
-          state = state.copyWith(
-            detectedLang: event.fromCode,
-            argosBusy: true,
-            argosStatus: EngineRunStatus.busy,
-            argosTotal: event.unitCount,
-            argosDone: 0,
-          );
-        } else {
-          state = state.copyWith(
-            argosBusy: true,
-            argosStatus: EngineRunStatus.busy,
-            argosTotal: event.unitCount,
-            argosDone: 0,
-          );
-        }
+        state = state.copyWith(
+          argosBusy: true,
+          argosStatus: EngineRunStatus.busy,
+          argosTotal: event.unitCount,
+          argosDone: 0,
+        );
       case TranslateChunk():
         _assembler.put(
           index: event.index,

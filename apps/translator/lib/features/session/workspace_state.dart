@@ -23,6 +23,10 @@ class WorkspaceState {
     this.langTo = 'ru',
     this.detectedLang,
     this.resolvedTo,
+    this.pairOverride = false,
+    this.overrideFrom,
+    this.overrideTo,
+    this.pairPinned = false,
     this.argosStatus = EngineRunStatus.idle,
     this.llmStatus = EngineRunStatus.idle,
     this.argosBusy = false,
@@ -51,6 +55,14 @@ class WorkspaceState {
   final String langTo;
   final String? detectedLang;
   final String? resolvedTo;
+
+  /// Разворот AUTO только для текущего текста. Настройки не меняются.
+  final bool pairOverride;
+  final String? overrideFrom;
+  final String? overrideTo;
+
+  /// Явный свап или выбор в селекторе: автоправка этот текст не трогает.
+  final bool pairPinned;
   final EngineRunStatus argosStatus;
   final EngineRunStatus llmStatus;
   final bool argosBusy;
@@ -94,6 +106,11 @@ class WorkspaceState {
     bool clearDetected = false,
     String? resolvedTo,
     bool clearResolved = false,
+    bool? pairOverride,
+    bool clearPairOverride = false,
+    String? overrideFrom,
+    String? overrideTo,
+    bool? pairPinned,
     EngineRunStatus? argosStatus,
     EngineRunStatus? llmStatus,
     bool? argosBusy,
@@ -125,6 +142,10 @@ class WorkspaceState {
       langTo: langTo ?? this.langTo,
       detectedLang: clearDetected ? null : (detectedLang ?? this.detectedLang),
       resolvedTo: clearResolved ? null : (resolvedTo ?? this.resolvedTo),
+      pairOverride: clearPairOverride ? false : (pairOverride ?? this.pairOverride),
+      overrideFrom: clearPairOverride ? null : (overrideFrom ?? this.overrideFrom),
+      overrideTo: clearPairOverride ? null : (overrideTo ?? this.overrideTo),
+      pairPinned: pairPinned ?? this.pairPinned,
       argosStatus: argosStatus ?? this.argosStatus,
       llmStatus: llmStatus ?? this.llmStatus,
       argosBusy: argosBusy ?? this.argosBusy,

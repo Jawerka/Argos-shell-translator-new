@@ -1,6 +1,6 @@
 import '../json_util.dart';
 
-const currentSettingsVersion = 9;
+const currentSettingsVersion = 10;
 
 class BehaviorSettings {
   const BehaviorSettings({
@@ -266,7 +266,7 @@ class WindowSettings {
   }
 }
 
-/// Настройки v9: `%USERPROFILE%\.argos_translate\settings.json`.
+/// Настройки v10: `%USERPROFILE%\.argos_translate\settings.json`.
 class AppSettings {
   const AppSettings({
     this.version = currentSettingsVersion,
@@ -603,7 +603,7 @@ Map<String, String> _migrateApiKeys(Map<String, dynamic> llmData) {
   return result;
 }
 
-/// Миграция JSON настроек до v9. URL и ключи не стираются.
+/// Миграция JSON настроек до v10. URL и ключи не стираются.
 Map<String, dynamic> migrateSettings(Map<String, dynamic> input) {
   final data = Map<String, dynamic>.from(input);
   var version = readInt(data['version'], 1);
@@ -694,6 +694,21 @@ Map<String, dynamic> migrateSettings(Map<String, dynamic> input) {
             });
     data['llm'] = llm;
     version = 9;
+  }
+  if (version < 10) {
+    final languages = asStringKeyedMap(data['languages']);
+    final from = languages['from']?.toString().trim().toLowerCase() ?? '';
+    final to = languages['to']?.toString().trim().toLowerCase() ?? '';
+    const enRu = {'en', 'ru'};
+    if (enRu.contains(from) && enRu.contains(to)) {
+      languages['from'] = 'auto';
+      languages['to'] = 'ru';
+      data['languages'] = languages;
+      final translation = asStringKeyedMap(data['translation']);
+      translation['auto_target_lang'] = 'ru';
+      data['translation'] = translation;
+    }
+    version = 10;
   }
 
   data['version'] = version;

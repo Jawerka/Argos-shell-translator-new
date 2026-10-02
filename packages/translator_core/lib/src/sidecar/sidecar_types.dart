@@ -148,15 +148,24 @@ final class TranslateCancelled extends TranslateEvent {
 }
 
 class DetectResult {
-  const DetectResult({required this.code, required this.label});
+  const DetectResult({
+    required this.code,
+    required this.label,
+    this.lang = '',
+  });
 
   final String code;
   final String label;
 
+  /// `ru` или метка языка без подгонки под модели Argos.
+  final String lang;
+
   factory DetectResult.fromJson(Map<String, dynamic> json) {
+    final code = readString(json['code'], '');
     return DetectResult(
-      code: readString(json['code'], ''),
+      code: code,
       label: readString(json['label'], ''),
+      lang: readString(json['lang'], code),
     );
   }
 }

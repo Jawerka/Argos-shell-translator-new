@@ -10,7 +10,7 @@ Windows-first переводчик: **Flutter UI** + **Python sidecar** для �
 2. **Настройки принадлежат UI.** Sidecar не читает и не пишет `settings.json`. Параметры перевода приходят в каждом запросе. Секреты LLM — только во Flutter (`flutter_secure_storage`).
 3. **Старт sidecar:** Flutter генерирует токен, кладёт его в `ARGOS_SIDECAR_TOKEN`, запускает процесс с `--host 127.0.0.1 --port 0 --parent-pid <pid>` (опционально `--token`), читает первую строку stdout или ready-файл `{"ok":true,"port":N}`. Слушать только loopback. Заголовок `X-Sidecar-Token` на всех методах, кроме опционального `GET /health` (liveness без деталей). Sidecar завершается, если родитель умер (watchdog). Лог: `{log_dir}/sidecar.log`, не stdout. Диагностика AUTO-языка: `{log_dir}/detect.log` (Flutter и sidecar; путь задаётся через `ARGOS_DETECT_LOG`).
 4. **Melos не обязателен.** Два Dart-пакета — workspace в корневом `pubspec.yaml` и `scripts/dev.ps1`. Melos подключать, если пакетов станет больше.
-5. **Settings v9 живут только в Dart** (`packages/translator_core`). Sidecar файл не читает. Новый инсталл: пустой LOCAL URL, хоткей не назначен.
+5. **Settings v10 живут только в Dart** (`packages/translator_core`). Sidecar файл не читает. Новый инсталл: пустой LOCAL URL, хоткей не назначен. Явная пара en↔ru при миграции становится AUTO → RU.
 
 ## Как это работает
 
@@ -36,14 +36,15 @@ Windows-first переводчик: **Flutter UI** + **Python sidecar** для �
 
 ### AUTO
 
-- Селектор «откуда» остаётся AUTO.
-- Селектор «куда» — предпочтительная цель (по умолчанию RU).
-- Правило: если определённый язык совпал с целью — переворот (`ru→en`); любой другой исходник идёт в предпочтительную цель. Явно выбранная другая цель (DE) уважается, пока детект ≠ DE.
-- Пара считается один раз за цикл и одинаково уходит в Argos и LLM явными кодами (после resolve не `from=auto`).
-- Чип рядом с селектором: `EN → RU` (определённый язык → фактическая цель), не подмена комбобокса.
-- Lingua (`lingua-language-detector`) среди установленных from-кодов Argos; при confidence ниже 0.5, тексте короче 3 символов или коде вне установленных from — эвристика en/ru по алфавиту (`snap_detected_lang`).
-- Диагностика: `{log_dir}/detect.log` (превью 2–3 слов, ветки Flutter/sidecar/Lingua). Путь: `DETECT path=...` в `app.log` / `sidecar.log`.
-- Swap при AUTO меняет только цель (с учётом фактической пары). Исходник остаётся AUTO. После свапа сразу запускается перевод текущего исходника.
+- Селектор «откуда» остаётся AUTO. Правило фиксированное: **не русский → RU, русский → EN**.
+- «Русский» — доля кириллицы от 0.3 после чистки (URL, упоминания, `:emoji:`, код). Имена и термины латиницей не входят в счёт: заглавная не в начале предложения, CamelCase, капс, цифры и `_`. Нет букв (ссылка, «OK», эмодзи) — как не русский.
+- Нерусский язык: sidecar ставит метку Lingua (low-accuracy: en, de, fr, es, it, pt, nl, pl, cs, tr, sv, ja, zh, ko, ar, el, he, hi, th и установленные некириллические коды). Для латиницы метка берётся при 10+ буквах и уверенности от 0.8, иначе `en`. Кириллических языков в наборе нет. Метка уходит в LLM как есть. Argos без модели (например `de`) откатывается на `en→ru`.
+- Пара считается один раз за цикл и одинаково уходит в Argos и LLM явными кодами (после resolve не `from=auto`). Детект sidecar вызывается только для нерусского.
+- Чип рядом с селектором: `EN → RU` (метка → фактическая цель). Событие `start` чип не перетирает.
+- Свап в AUTO разворачивает пару **только для текущего текста** (чип с точкой и отдельной подсказкой). Настройки не меняются. Повторный свап снимает разворот. Новый текст (вставка, а не правка: общий префикс и суффикс короче половины) снова идёт по правилу.
+- Явная пара en↔ru разворачивается и сохраняется, если источник однозначный: доля кириллицы от 0.6 и минимум 2 кириллические буквы → `ru`; ни одной кириллической и минимум 2 латинские → `en`. Смесь явную пару не трогает. Другие пары (`de→fr`) не трогаются. Ручной свап или выбор в селекторе закрепляет текущий текст: автоправка его не меняет.
+- Миграция settings v10: `languages.from` и `to` из {en, ru} становятся `from: auto`, `to: ru`, `auto_target_lang: ru`.
+- Диагностика: `{log_dir}/detect.log`. В строке — превью 2–3 слов, счётчики и доля, метка, пара, причина (`auto` / `override` / `explicit` / `correct`). Свап пишет старую и новую пару. Путь: `DETECT path=...` в `app.log` / `sidecar.log`. `POST /v1/detect` возвращает `code` (для Argos) и `lang` (метка без подгонки).
 
 ### Streaming
 
@@ -125,7 +126,7 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 | `GET /health` | `{ok, version}` без токена |
 | `GET /v1/health` | токен; Argos доступен, пары моделей |
 | `POST /v1/translate` | NDJSON-стрим чанков Argos |
-| `POST /v1/detect` | язык исходника |
+| `POST /v1/detect` | `code` для Argos и `lang` — метка без подгонки |
 | `GET /v1/languages` | словарь кодов |
 | `GET /v1/models` | установленные пары + packages_dir |
 | `POST /v1/models/install` | `{path}` или `{bundle: true}` |
@@ -164,7 +165,7 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 
 Событие `error` всегда с `job_id`. Если пара моделей отсутствует (при непустом списке установленных) — `{"type":"error","message":"Нет модели en→ru"}` до вызова движка. `/v1/cancel` уважает `job_id`.
 
-## Settings v9
+## Settings v10
 
 Путь: `%USERPROFILE%\.argos_translate\settings.json`.
 
@@ -172,7 +173,7 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 
 | Поле | Смысл |
 |------|--------|
-| `version` | `9` |
+| `version` | `10` |
 | `window.editor_font` | `system` \| `mono` |
 | `ui.first_run_done` | мастер первого запуска |
 | `llm.api_key_refs` | ссылки (`openrouter`, `custom`); сами ключи не в JSON |
@@ -185,6 +186,8 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 - `first_run_done = true` (не показывать мастер старому пользователю).
 - URL и ключи **не стирать**. Flutter при первом чтении переносит plaintext `api_keys` в secure storage и записывает пустые `api_keys` + `api_key_refs`.
 - Новый файл (нет settings.json): пустой LOCAL URL, хоткей выключен, `first_run_done=false`.
+
+Миграция v9 → v10: если `languages.from` и `languages.to` оба из {en, ru}, записать `from: auto`, `to: ru`, `auto_target_lang: ru`. Пара вроде `de→fr` остаётся. URL и промпт не меняются.
 
 ## Визуал
 
@@ -203,7 +206,7 @@ DnD и «Открыть»: только plain-text из списка sidecar (`t
 
 ```
 apps/translator/              Flutter Windows
-packages/translator_core/     settings v9, sidecar client, LLM SSE, чанки
+packages/translator_core/     settings v10, sidecar client, LLM SSE, чанки
 sidecar/                      HTTP вокруг src/argos_translator
 src/argos_translator/        движки Argos для sidecar
 ui-mockups/

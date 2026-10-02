@@ -163,10 +163,16 @@ def _handle(
         text = str(body.get("text") or "")
         peek = peek_words(text)
         detect_info("fn=http_detect begin peek=%r len=%s", peek, len(text.strip()))
-        code = state.runner.detect(text)
+        code, lang = state.runner.detect_result(text)
         label = DefaultLanguages.LANGUAGES.get(code, code)
-        detect_info("fn=http_detect end peek=%r code=%s label=%s", peek, code, label)
-        _send(handler, *_json_bytes({"code": code, "label": label}))
+        detect_info(
+            "fn=http_detect end peek=%r code=%s lang=%s label=%s",
+            peek,
+            code,
+            lang,
+            label,
+        )
+        _send(handler, *_json_bytes({"code": code, "label": label, "lang": lang}))
         return
 
     if path == "/v1/files/decode" and method == "POST":

@@ -42,7 +42,7 @@ Sidecar: токен через `ARGOS_SIDECAR_TOKEN` (не в argv по умол
 
 ```
 apps/translator/                # Flutter Windows (основной UI)
-packages/translator_core/       # settings v9, sidecar client, LLM SSE
+packages/translator_core/       # settings v10, sidecar client, LLM SSE
 sidecar/                        # HTTP вокруг src/argos_translator
 sidecar_entry.py                # PyInstaller entry sidecar
 ArgosSidecar.spec               # frozen argos_sidecar (console=False)
@@ -65,7 +65,7 @@ hooks/                          # PyInstaller hooks (numpy, ctranslate2, argostr
 - [`apps/translator/lib/app.dart`](apps/translator/lib/app.dart) — старт sidecar, супервизия, тройной Ctrl+C, выход
 - [`apps/translator/lib/features/session/workspace_controller.dart`](apps/translator/lib/features/session/workspace_controller.dart) — debounce, AUTO-пара, Argos/LLM, Stop
 - [`apps/translator/lib/features/shell/main_split.dart`](apps/translator/lib/features/shell/main_split.dart) — шорткаты (Ctrl+Shift+X = swap)
-- [`packages/translator_core/`](packages/translator_core/) — settings v9, `SidecarClient`, `LlmClient`
+- [`packages/translator_core/`](packages/translator_core/) — settings v10, `SidecarClient`, `LlmClient`
 - [`apps/translator/lib/platform/sidecar_process.dart`](apps/translator/lib/platform/sidecar_process.dart) — spawn, `--parent-pid`, перезапуск
 - [`sidecar/`](sidecar/) — HTTP, jobs, watchdog
 
@@ -82,12 +82,12 @@ hooks/                          # PyInstaller hooks (numpy, ctranslate2, argostr
 
 - **Argos**: `SidecarClient.translate` → NDJSON `start`/`chunk`/`done`/`error`/`cancelled`
 - **LLM**: `LlmClient.translate` → SSE; Stop вызывает `abort()`
-- **AUTO**: `resolveAutoPair(detected, preferredTo)`; чип `EN → RU`
+- **AUTO**: «не RU → RU, RU → EN» по доле кириллицы (`sourceVerdict`); чип `EN → RU`
 
 ### Настройки
 
 - Файл: `%USERPROFILE%\.argos_translate\settings.json`
-- Модель: Dart-настройки в [`packages/translator_core`](packages/translator_core/) — версия **9** (Python-модели нет; sidecar `settings.json` не читает)
+- Модель: Dart-настройки в [`packages/translator_core`](packages/translator_core/) — версия **10** (Python-модели нет; sidecar `settings.json` не читает). v10: явная пара en/ru один раз становится AUTO → RU.
 - Важные поля: `font_scale`, `editor_layout`, `streaming`, `scroll_sync`, секция `llm`, `active_translation_tab`, `auto_target_lang`, `behavior.triple_copy_enabled`, `behavior.global_hotkey`
 
 ## Соглашения при разработке
@@ -115,7 +115,7 @@ hooks/                          # PyInstaller hooks (numpy, ctranslate2, argostr
 
 - Лог Flutter (общий): `%USERPROFILE%\.argos_translate\log\app.log` (ротация >2 МБ)
 - Лог sidecar: `{app}/log/sidecar.log` (portable/install) или `{repo}/log/sidecar.log` (dev); RotatingFileHandler, не stdout
-- Диагностика детекции языка: **`detect.log`** рядом с `sidecar.log` (тот же каталог; путь в `app.log`/`sidecar.log` как `DETECT path=...`). Env `ARGOS_DETECT_LOG` задаёт абсолютный путь. В строках — превью 2–3 слов, ветка Lingua/heuristic/skip, snap и чип AUTO.
+- Диагностика детекции языка: **`detect.log`** рядом с `sidecar.log` (тот же каталог; путь в `app.log`/`sidecar.log` как `DETECT path=...`). Env `ARGOS_DETECT_LOG` задаёт абсолютный путь. В строках — превью 2–3 слов, вердикт (счётчики и доля), метка, пара и причина (`auto` / `override` / `explicit` / `correct`).
 - LLM URL задаётся в настройках Flutter (пустой LOCAL по умолчанию)
 
 ## CI

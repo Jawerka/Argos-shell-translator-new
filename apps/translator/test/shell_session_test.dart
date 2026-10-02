@@ -11,9 +11,7 @@ import 'package:translator_core/translator_core.dart';
 import 'support/harness.dart';
 
 void main() {
-  testWidgets('swap AUTO with detected keeps AUTO and flips target', (
-    tester,
-  ) async {
+  testWidgets('swap AUTO flips only the current text', (tester) async {
     final sidecar = fakeSidecar();
     final container = await pumpApp(
       tester,
@@ -21,7 +19,6 @@ void main() {
       sidecar: sidecar,
     );
     final session = container.read(workspaceProvider.notifier);
-    // Seed detected lang as if detect already ran.
     session.sourceController.text = 'Hello world';
     await session.translateNow();
     await tester.pumpAndSettle();
@@ -31,7 +28,13 @@ void main() {
     await tester.pumpAndSettle();
     final state = container.read(workspaceProvider);
     expect(state.langFrom, 'auto');
-    expect(state.langTo, 'en');
+    expect(state.langTo, 'ru');
+    expect(state.pairOverride, isTrue);
+    expect(state.detectedLang, 'ru');
+    expect(state.resolvedTo, 'en');
+    expect(container.read(settingsProvider).langFrom, 'auto');
+    expect(container.read(settingsProvider).langTo, 'ru');
+    expect(find.text('RU → EN ·'), findsOneWidget);
     expect(sidecar.fakeState.translateCalls, greaterThan(1));
   });
 
